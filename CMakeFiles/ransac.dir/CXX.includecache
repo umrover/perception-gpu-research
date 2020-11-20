@@ -45,6 +45,10 @@ pcl/point_types.h
 -
 pcl/visualization/pcl_visualizer.h
 -
+pcl/sample_consensus/ransac.h
+-
+pcl/sample_consensus/sac_model_plane.h
+-
 
 /usr/local/include/eigen3/Eigen/Cholesky
 Core

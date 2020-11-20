@@ -17,6 +17,8 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/sample_consensus/ransac.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
 
 using namespace std;
 #define PCD_FOLDER "data"
@@ -72,17 +74,33 @@ shared_ptr<pcl::visualization::PCLVisualizer> createRGBVisualizer(pcl::PointClou
     return (viewer);
 }
 
+void ransacCPU() {
+	pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr model(new pcl::SampleConsensusModelPlane<pcl::PointXYZ> (pc));
+	pcl::RandomSampleConsensus<pcl::PointXYZ> ransac (model);
+    ransac.setDistanceThreshold (.01);
+    ransac.computeModel();
+	std::vector<int> inliers;
+    ransac.getInliers(inliers);
+
+	for(int i = 0; i < (int)inliers->indices.size(); i++) {
+        pc->points[inliers->indices[i]].r = 255;
+		pc->points[inliers->indices[i]].g = 0;
+        pc->points[inliers->indices[i]].b = 0;
+	}
+}
+
 int main() {
 	int iter = 0;
-	readData();
-	setPointCloud(0);
-	viewer = createRGBVisualizer(pc);
+	readData(); //Load the pcd file names into pcd_names
+	setPointCloud(0); //Set the first point cloud to be the first of the files
+	viewer = createRGBVisualizer(pc); //Create an RGB visualizer for said cloud
 	while(true) {
-		iter++;
-		viewer->updatePointCloud(pc);
-    	viewer->spinOnce(10);
-		setPointCloud(iter);
+		ransacCPU(); 
 
+		iter++; 
+		viewer->updatePointCloud(pc); //update the viewer 
+    	viewer->spinOnce(10); //pcl spin wait
+		setPointCloud(iter); //load next point cloud into the same pointer
 	}
 	//cout << "hi" << endl;
 	return 0;
