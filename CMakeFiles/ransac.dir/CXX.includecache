@@ -9,6 +9,10 @@
 /mnt/big-disk/src/ransac-test/ransac.cpp
 iostream
 -
+vector
+-
+algorithm
+-
 pcl/filters/voxel_grid.h
 -
 pcl/common/common_headers.h
@@ -40,8 +44,6 @@ pcl/io/pcd_io.h
 pcl/point_types.h
 -
 pcl/visualization/pcl_visualizer.h
--
-filesystem
 -
 
 /usr/local/include/eigen3/Eigen/Cholesky
