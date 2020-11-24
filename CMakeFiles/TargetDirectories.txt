@@ -1,3 +1,0 @@
-/mnt/big-disk/src/ransac-test/CMakeFiles/rebuild_cache.dir
-/mnt/big-disk/src/ransac-test/CMakeFiles/ransac.dir
-/mnt/big-disk/src/ransac-test/CMakeFiles/edit_cache.dir

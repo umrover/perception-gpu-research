@@ -13,14 +13,14 @@
 using namespace std::chrono_literals;
 
 pcl::visualization::PCLVisualizer::Ptr
-simpleVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud)
+simpleVis (pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud)
 {
   // --------------------------------------------
   // -----Open 3D viewer and add point cloud-----
   // --------------------------------------------
   pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-  viewer->setBackgroundColor (0, 0, 0);
-  viewer->addPointCloud<pcl::PointXYZ> (cloud, "sample cloud");
+  viewer->setBackgroundColor (255, 255, 255);
+  viewer->addPointCloud<pcl::PointXYZRGB> (cloud, "sample cloud");
   viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
   //viewer->addCoordinateSystem (1.0, "global");
   viewer->initCameraParameters ();
@@ -31,8 +31,8 @@ int
 main(int argc, char** argv)
 {
   // initialize PointClouds
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::PointCloud<pcl::PointXYZ>::Ptr final (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr final (new pcl::PointCloud<pcl::PointXYZRGB>);
 
   // populate our PointCloud with points
   cloud->width    = 500;
@@ -68,23 +68,32 @@ main(int argc, char** argv)
   std::vector<int> inliers;
 
   // created RandomSampleConsensus object and compute the appropriated model
-  pcl::SampleConsensusModelSphere<pcl::PointXYZ>::Ptr
-    model_s(new pcl::SampleConsensusModelSphere<pcl::PointXYZ> (cloud));
-  pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr
-    model_p (new pcl::SampleConsensusModelPlane<pcl::PointXYZ> (cloud));
+  pcl::SampleConsensusModelSphere<pcl::PointXYZRGB>::Ptr
+    model_s(new pcl::SampleConsensusModelSphere<pcl::PointXYZRGB> (cloud));
+  pcl::SampleConsensusModelPlane<pcl::PointXYZRGB>::Ptr
+    model_p (new pcl::SampleConsensusModelPlane<pcl::PointXYZRGB> (cloud));
   if(pcl::console::find_argument (argc, argv, "-f") >= 0)
   {
-    pcl::RandomSampleConsensus<pcl::PointXYZ> ransac (model_p);
+    pcl::RandomSampleConsensus<pcl::PointXYZRGB> ransac (model_p);
     ransac.setDistanceThreshold (.01);
     ransac.computeModel();
     ransac.getInliers(inliers);
+
+
+    
+    for(int i = 0; i < (int)inliers.size(); i++) {
+        cloud->points[inliers[i]].r = 255;
+		    cloud->points[inliers[i]].g = 0;
+        cloud->points[inliers[i]].b = 0;
+	  }
   }
   else if (pcl::console::find_argument (argc, argv, "-sf") >= 0 )
   {
-    pcl::RandomSampleConsensus<pcl::PointXYZ> ransac (model_s);
+    pcl::RandomSampleConsensus<pcl::PointXYZRGB> ransac (model_s);
     ransac.setDistanceThreshold (.01);
     ransac.computeModel();
     ransac.getInliers(inliers);
+
   }
 
   // copies all inliers of the model computed to another PointCloud
@@ -94,7 +103,7 @@ main(int argc, char** argv)
   // depending on the command line arguments specified.
   pcl::visualization::PCLVisualizer::Ptr viewer;
   if (pcl::console::find_argument (argc, argv, "-f") >= 0 || pcl::console::find_argument (argc, argv, "-sf") >= 0)
-    viewer = simpleVis(final);
+    viewer = simpleVis(cloud); //final
   else
     viewer = simpleVis(cloud);
   while (!viewer->wasStopped ())

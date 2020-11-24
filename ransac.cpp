@@ -74,20 +74,33 @@ shared_ptr<pcl::visualization::PCLVisualizer> createRGBVisualizer(pcl::PointClou
     return (viewer);
 }
 
+
 void ransacCPU() {
-	pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr model(new pcl::SampleConsensusModelPlane<pcl::PointXYZ> (pc));
-	pcl::RandomSampleConsensus<pcl::PointXYZ> ransac (model);
-    ransac.setDistanceThreshold (.01);
+	pcl::ScopeTime t1("ransac");
+	pcl::SampleConsensusModelPlane<pcl::PointXYZRGB>::Ptr model(new pcl::SampleConsensusModelPlane<pcl::PointXYZRGB> (pc));
+	pcl::RandomSampleConsensus<pcl::PointXYZRGB> ransac (model);
+
+	pcl::PointXYZRGB min, max;
+
+	pcl::getMinMax3D(*pc, min, max);
+	cout << "min: " << min.x << ", " << min.y << ", " << min.z << endl;
+	cout << "max: " << max.x << ", " << max.y << ", " << max.z << endl;
+
+	
+    ransac.setDistanceThreshold(1);
     ransac.computeModel();
 	std::vector<int> inliers;
     ransac.getInliers(inliers);
 
-	for(int i = 0; i < (int)inliers->indices.size(); i++) {
-        pc->points[inliers->indices[i]].r = 255;
-		pc->points[inliers->indices[i]].g = 0;
-        pc->points[inliers->indices[i]].b = 0;
+	for(int i = 0; i < (int)inliers.size(); i++) {
+        pc->points[inliers[i]].r = 255;
+		pc->points[inliers[i]].g = 0;
+        pc->points[inliers[i]].b = 0;
 	}
-}
+
+	//pcl::copyPointCloud (*cloud, inliers, *final);
+
+} 
 
 int main() {
 	int iter = 0;
