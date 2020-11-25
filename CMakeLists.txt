@@ -17,10 +17,15 @@ include_directories(${ZED_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
 include_directories(${GLUT_INCLUDE_PATH})
 include_directories(${CUDA_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 
 link_directories(${PCL_LIBRARY_DIRS})
 link_directories(${ZED_LIBRARY_DIR})
+link_directories(${GLEW_LIBRARY_DIRS})
+link_directories(${GLUT_LIBRARY_DIRS})
+link_directories(${OpenGL_LIBRARY_DIRS})
+link_directories(${CUDA_LIBRARY_DIRS})
 
 add_definitions(${PCL_DEFINITIONS})
 
@@ -29,6 +34,14 @@ add_definitions(${PCL_DEFINITIONS})
 #add_executable(test-kernel src/test-kernel.cu)
 #set_property(TARGET test-kernel PROPERTY CUDA_STANDARD 11)
 
-add_executable (driver src/driver.cu)
+add_executable (driver src/driver.cu src/GLViewer.cpp)
 target_link_libraries (driver Eigen3::Eigen)
 target_link_libraries (driver ${ZED_LIBRARIES})
+target_link_libraries(driver 
+                        ${SPECIAL_OS_LIBS} 
+                        ${ZED_LIBS} 
+                        ${OPENGL_LIBRARIES}
+                        ${GLUT_LIBRARY}
+                        ${GLEW_LIBRARIES})
+
+message("test ${CMAKE_CURRENT_SOURCE_DIR}")
