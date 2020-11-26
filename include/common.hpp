@@ -45,6 +45,6 @@ __device__ float getY(GPU_Cloud pc, int index) {
 __device__ float getZ(GPU_Cloud pc, int index) {
     return pc.data[pc.stride * index + 2];
 } */
-const int MAX_THREADS = 1024;
+#define MAX_THREADS 1024
 
 #endif

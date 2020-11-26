@@ -24,8 +24,10 @@ int main(int argc, char** argv) {
     //This is a cloud with data stored in GPU memory that can be acessed from CUDA kernels
     sl::Mat gpu_cloud (camera_config.resolution, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
 
+    int pcSize = zed.getCameraInformation().camera_resolution.area();
+
     //This is a RANSAC model that we will use
-    RansacPlane ransac(Vector3d(0, 1, 0), 10, 400, 100);
+    RansacPlane ransac(Vector3d(0, 1, 0), 10, 400, 100, pcSize);
 
     while(viewer.isAvailable()) {
         //grab the current point cloud
@@ -34,7 +36,7 @@ int main(int argc, char** argv) {
         GPU_Cloud pc = getRawCloud(gpu_cloud);
         
         ransac.computeModel(pc);
-        
+
 
         //run a custom CUDA filter that will color the cloud blue
         //TestFilter test_filter(gpu_cloud);
