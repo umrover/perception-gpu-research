@@ -37,6 +37,7 @@ add_definitions(${PCL_DEFINITIONS})
 add_executable (driver src/test-filter.cu src/driver.cu src/GLViewer.cpp src/common.cu)
 target_link_libraries (driver Eigen3::Eigen)
 target_link_libraries (driver ${ZED_LIBRARIES})
+target_link_libraries (driver ${PCL_LIBRARIES})
 target_link_libraries(driver 
                         ${SPECIAL_OS_LIBS} 
                         ${ZED_LIBS} 
