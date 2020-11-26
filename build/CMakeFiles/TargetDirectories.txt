@@ -1,3 +1,0 @@
-/home/matt/perception-gpu-research/build/CMakeFiles/rebuild_cache.dir
-/home/matt/perception-gpu-research/build/CMakeFiles/driver.dir
-/home/matt/perception-gpu-research/build/CMakeFiles/edit_cache.dir
