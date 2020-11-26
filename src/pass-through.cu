@@ -19,10 +19,10 @@ PassThrough::PassThrough(sl::Mat gpu_cloud, char axis, float min,
 };
 
 //CUDA Kernel Helper Function
-__global__ void passThroughKernel(GPU_Cloud cloud, int axis, float min, float max, int* numRemoved) {
+__global__ void passThroughKernel(GPU_Cloud cloud, int axis, float min, float max, int* size) {
     
     //Find index for current operation
-    int idx = threadIdx.x + blockIdx.x * 1024;
+    int idx = threadIdx.x + blockIdx.x * BLOCK_SIZE;
     if(idx >= cloud.size) return;
     
     //Initialize local variables
@@ -31,54 +31,54 @@ __global__ void passThroughKernel(GPU_Cloud cloud, int axis, float min, float ma
     float z(0);
     float rgb(0);
 
-    //If in range set the first value to infinity
-    if(cloud.data[idx+axis] > max || cloud.data[idx+axis] < min){
-        cloud.data[idx+3] = 4353.0;
+    //If out of range make blue and return
+    if(cloud.data[idx*CHANNEL+axis] > max || cloud.data[idx*CHANNEL+axis] < min){
+        cloud.data[idx*CHANNEL+3] = 4353.0;
         return;
     }
     
     //If still going then update point cloud float array
-    x = cloud.data[idx];
-    y = cloud.data[idx+1];
-    z = cloud.data[idx+2];
-    rgb = cloud.data[idx+3];
+    x = cloud.data[idx*CHANNEL];
+    y = cloud.data[idx*CHANNEL+1];
+    z = cloud.data[idx*CHANNEL+2];
+    rgb = cloud.data[idx*CHANNEL+3];
 
     //Make sure all threads have checked for passThrough
     __syncthreads();
 
-    //Count the number removed
-    int place = atomicAdd(numRemoved, 1);
+    //Count the new size
+    int place = atomicAdd(size, 1);
 
     //Copy back data into place in front of array
-    cloud.data[place] = x;
-    cloud.data[place+1] = y;
-    cloud.data[place+2] = z;
-    cloud.data[place+3] = rgb;
+    cloud.data[place*CHANNEL] = x;
+    cloud.data[place*CHANNEL+1] = y;
+    cloud.data[place*CHANNEL+2] = z;
+    cloud.data[place*CHANNEL+3] = rgb;
 
 }
 
 void PassThrough::run(GPU_Cloud cloud){
 
     //Create pointer to value in host memory
-    int* h_removed;
-    *h_removed = 0;
+    int* h_newSize;
+    *h_newSize = 0;
 
     //Create pointer to value in device memory
-    int* d_removed;
-    cudaMalloc(&d_removed, sizeof(int));
+    int* d_newSize;
+    cudaMalloc(&d_newSize, sizeof(int));
 
     //Copy from host to device
-    cudaMemcpy(d_removed, h_removed, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_newSize, h_newSize, sizeof(int), cudaMemcpyHostToDevice);
 
     //Run PassThrough Kernel
-    passThroughKernel<<<ceilDiv(gpu_cloud.size, 1024), 1024>>>(this->gpu_cloud, axis, min, max, d_removed);
+    passThroughKernel<<<ceilDiv(gpu_cloud.size, BLOCK_SIZE), BLOCK_SIZE>>>(this->gpu_cloud, axis, min, max, d_newSize);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
 
     //Copy from device to host
-    cudaMemcpy(h_removed, d_removed, sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_newSize, d_newSize, sizeof(int), cudaMemcpyDeviceToHost);
 
     //Update size of cloud
-    cloud.size() -= *h_removed;
+    cloud.size() = *h_newSize;
 
 }

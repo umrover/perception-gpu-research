@@ -3,6 +3,8 @@
 #ifndef COMMON
 #define COMMON
 
+#define CHANNEL 4
+#define BLOCK_SIZE 1024
 
 //GPU point cloud struct that can be passed to cuda kernels and represents a point cloud
 struct GPU_Cloud {
