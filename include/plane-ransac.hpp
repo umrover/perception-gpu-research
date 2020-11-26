@@ -27,13 +27,15 @@ class RansacPlane {
         - Computes a plane perpendicular to the given axis within the tolerance that fits 
         the most data using the RANSAC algorithm
         */
-        RansacPlane(GPU_Cloud pc, Vector3d axis, float epsilon, int iterations, float threshold);
+        RansacPlane(Vector3d axis, float epsilon, int iterations, float threshold);
+
+        ~RansacPlane();
 
         /*
         EFFECTS:
         - Computes the RANSAC model on the GPU and returns the coefficients 
         */
-        Plane computeModel();
+        Plane computeModel(GPU_Cloud pc);
 
 
         /*
@@ -47,12 +49,18 @@ class RansacPlane {
         */
 
 
+
     private:
+        //user given model parms
         GPU_Cloud pc;
         GPU_Indicies inliers;
         Vector3d axis;
         float epsilon;
         int iterations;
         float threshold;
+
+        //internal info
+        int* inlierCounts; 
+        int* modelPoints; 
 
 };

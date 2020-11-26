@@ -28,10 +28,10 @@ int ceilDiv(int x, int y);
 GPU_Cloud getRawCloud(sl::Mat zed_cloud);
 
 //Remove all the points in cloud except those at the given indicies 
-GPU_Cloud removeAllExcept(GPU_Cloud in, int* indicies, int cnt);
+GPU_Cloud removeAllExcept(GPU_Cloud pc, GPU_Indicies indicies);
 
 //Remove all the points in cloud at the given indicies 
-GPU_Cloud keepAllExcept(GPU_Cloud in, int* indicies, int cnt);
+GPU_Cloud keepAllExcept(GPU_Cloud pc, GPU_Indicies indicies);
 
 /*
 __device__ float getX(GPU_Cloud pc, int index) {
@@ -45,6 +45,6 @@ __device__ float getY(GPU_Cloud pc, int index) {
 __device__ float getZ(GPU_Cloud pc, int index) {
     return pc.data[pc.stride * index + 2];
 } */
-
+const int MAX_THREADS = 1024;
 
 #endif
