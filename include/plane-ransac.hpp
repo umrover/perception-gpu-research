@@ -42,7 +42,7 @@ class RansacPlane {
         EFFECTS:
         - Gets GPU pointer for indicies of the inliers of the model
         */
-        int* getInliers();
+        GPU_Indicies getInliers();
 
         /*
         - Plane equation in standard form
@@ -62,5 +62,6 @@ class RansacPlane {
         //internal info
         int* inlierCounts; 
         int* modelPoints; 
+        int selection;
 
 };

@@ -66,6 +66,14 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud pc) {
     return {0, 0, 0, 0};
 }
 
+/*
+    1. Uses the selection computed in computeModel() and the modelPoints of that selection
+    to re-calculate the inliers and export them in a list. 
+*/
+GPU_Indicies RansacPlane::getInliers() {
+    return {nullptr, 0};
+}
+
 RansacPlane::~RansacPlane() {
     cudaFree(inlierCounts);
     cudaFree(modelPoints);
