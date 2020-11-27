@@ -65,7 +65,7 @@ __global__ void ransacKernel(GPU_Cloud pc, int* inlierCounts, int* modelPoints) 
     //parallel reduction
 
     if(threadIdx.x == 0) {
-        inlierCounts[]
+        inlierCounts[iteration] = __shar
     }
 }
 
