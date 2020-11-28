@@ -16,8 +16,14 @@ __device__ float getZ(GPU_Cloud pc, int index) {
 }
 
 __device__ float3 getPoint(GPU_Cloud pc, int idx) {
-    return float3(getX(pc, idx), getY(pc, idx), getZ(pc, idx));
+    
+    return make_float3(getX(pc, idx), getY(pc, idx), getZ(pc, idx));
 }
+
+__device__ float3 cross(float3 a, float3 b) { 
+    return make_float3(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x);
+}
+
 
 /* 
 REQUIRES:
@@ -65,7 +71,7 @@ __global__ void ransacKernel(GPU_Cloud pc, int* inlierCounts, int* modelPoints) 
     //parallel reduction
 
     if(threadIdx.x == 0) {
-        inlierCounts[iteration] = __shar
+    //    inlierCounts[iteration] = 
     }
 }
 
@@ -77,7 +83,7 @@ RansacPlane::RansacPlane(Vector3d axis, float epsilon, int iterations, float thr
     cudaMalloc(&modelPoints, sizeof(int) * iterations * 3);
     
     //Generate random numbers in CPU to use in RANSAC kernel
-    int* randomNumsCPU = (int*) alloc(sizeof(int) * iterations* 3);
+    int* randomNumsCPU = (int*) malloc(sizeof(int) * iterations* 3);
     for(int i = 0; i < iterations*3; i++) {
         randomNumsCPU[i] = rand() % pcSize;
     }

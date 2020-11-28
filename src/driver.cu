@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
     int pcSize = zed.getCameraInformation().camera_resolution.area();
 
     //This is a RANSAC model that we will use
-    RansacPlane ransac(Vector3d(0, 1, 0), 10, 400, 100, pcSize);
+    RansacPlane ransac(Eigen::Vector3d(0, 1, 0), 10, 400, 100, pcSize);
 
     while(viewer.isAvailable()) {
         //grab the current point cloud
