@@ -29,6 +29,7 @@ int main(int argc, char** argv) {
     sl::Mat gpu_cloud (camera_config.resolution, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
 
     int pcSize = zed.getCameraInformation().camera_resolution.area();
+    cout << "Point clouds are of size: " << pcSize << endl;
 
     //This is a RANSAC model that we will use
     RansacPlane ransac(Eigen::Vector3d(0, 1, 0), 10, 400, 100, pcSize);

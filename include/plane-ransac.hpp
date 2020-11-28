@@ -59,9 +59,15 @@ class RansacPlane {
         int iterations;
         float threshold;
 
-        //internal info
+        //internal info [GPU]
         int* inlierCounts; 
         int* modelPoints; 
-        int selection;
+        float* selection;
+        int* inlierListGPU;
+
+        //internal info [CPU]
+        float* selectedModel;
+        //int* inlierList;
+        
 
 };
