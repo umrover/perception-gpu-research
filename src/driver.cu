@@ -5,6 +5,10 @@
 #include <iostream>
 #include "common.hpp"
 #include <Eigen/Dense>
+#include <chrono> 
+
+
+using namespace std::chrono; 
 
 /*
 Temporary driver program, do NOT copy this to mrover percep code at time of integration
@@ -29,14 +33,20 @@ int main(int argc, char** argv) {
     //This is a RANSAC model that we will use
     RansacPlane ransac(Eigen::Vector3d(0, 1, 0), 10, 400, 100, pcSize);
 
+    auto start = high_resolution_clock::now(); 
     while(viewer.isAvailable()) {
+        //loop timer
+   
         //grab the current point cloud
         zed.grab();
         zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU); 
         GPU_Cloud pc = getRawCloud(gpu_cloud);
         
+        auto ransacStart = high_resolution_clock::now();
         ransac.computeModel(pc);
-
+        auto ransacStop = high_resolution_clock::now();
+        auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
+        cout << "ransac time: " << (ransacDuration.count()/1.0e6) << endl; 
 
         //run a custom CUDA filter that will color the cloud blue
         //TestFilter test_filter(gpu_cloud);
@@ -47,7 +57,6 @@ int main(int argc, char** argv) {
         
         //update the viewer, the points will be blue
         viewer.updatePointCloud(gpu_cloud);
-        
     }
     gpu_cloud.free();
     zed.close();
