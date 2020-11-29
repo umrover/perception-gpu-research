@@ -35,7 +35,7 @@ class RansacPlane {
         EFFECTS:
         - Computes the RANSAC model on the GPU and returns the coefficients 
         */
-        Plane computeModel(GPU_Cloud pc);
+        Plane computeModel(GPU_Cloud_F4 pc);
 
 
         /*
@@ -52,7 +52,7 @@ class RansacPlane {
 
     private:
         //user given model parms
-        GPU_Cloud pc;
+        GPU_Cloud_F4 pc;
         GPU_Indicies inliers;
         Vector3d axis;
         float epsilon;

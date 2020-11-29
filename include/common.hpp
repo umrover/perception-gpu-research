@@ -13,6 +13,12 @@ struct GPU_Cloud {
     int size;
 };
 
+struct GPU_Cloud_F4 {
+    sl::float4* data;
+    int stride; 
+    int size;
+};
+
 //GPU Indicies data
 struct GPU_Indicies {
     int* data;
@@ -28,6 +34,9 @@ int ceilDiv(int x, int y);
 
 //Get a CUDA workable gpu point cloud struct from Zed GPU cloud
 GPU_Cloud getRawCloud(sl::Mat zed_cloud);
+
+GPU_Cloud_F4 getRawCloud(sl::Mat zed_cloud, bool f4);
+
 
 //Remove all the points in cloud except those at the given indicies 
 GPU_Cloud removeAllExcept(GPU_Cloud pc, GPU_Indicies indicies);

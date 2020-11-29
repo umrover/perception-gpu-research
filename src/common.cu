@@ -63,5 +63,14 @@ GPU_Cloud getRawCloud(sl::Mat zed_cloud) {
     g.size = zed_cloud.getWidth() * zed_cloud.getHeight();
     return g;
 }
+
+
+GPU_Cloud_F4 getRawCloud(sl::Mat zed_cloud, bool f4) {
+    GPU_Cloud_F4 g;
+    g.data = zed_cloud.getPtr<sl::float4>(sl::MEM::GPU);
+    g.stride = 4;
+    g.size = zed_cloud.getWidth() * zed_cloud.getHeight();
+    return g;
+}
 //void PclToZed();*/
 
