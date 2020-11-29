@@ -74,11 +74,13 @@ EFFECTS:
     participate in a parallel reduction to give the total number of inliers for that block/model, 
     which will be returned from the kernel in the inlierCounts buffer. 
 */
-__global__ void ransacKernel(GPU_Cloud pc, int* inlierCounts, int* modelPoints, int threshold) {
-    __shared__ int inlierField[MAX_THREADS];
+__global__ void ransacKernel(GPU_Cloud pc, float* inlierCounts, int* modelPoints, float threshold) { 
+    __shared__ float inlierField[MAX_THREADS];
     //inlierField[threadIdx.x] = 0;
-    int inliers = 0;
+    //int inliers = 0;
     int iteration = blockIdx.x;
+
+    float inliers = 0;
 
     // select 3 random points from the cloud as the model that this particular block will evaluate
     int randIdx0 = modelPoints[iteration*3 + 0];
@@ -106,13 +108,20 @@ __global__ void ransacKernel(GPU_Cloud pc, int* inlierCounts, int* modelPoints, 
         
         // point in the point cloud that could be an inlier or outlier
         float3 curPt = getPoint(pc, pointIdx);
-
+        
         //calculate distance of cur pt to the plane formed by the 3 model points [see doc for the complete derrivation]
         float3 d_to_model_pt = (curPt - modelPt1);
+        
         float d = abs(dot(n, d_to_model_pt)) / norm(n);
-
+        
         //add a 0 if inlier, 1 if not 
-        inliers += (d < threshold) ? 1 : 0; 
+        //inliers += (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
+        //inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+        //float r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+        //int r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+       //inliers +=  (-1*abs(d - threshold)/(d - threshold) + 1 )/2 ;
+        inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+        
     }
     
     //parallel reduction to get an aggregate sum of the number of inliers for this model
@@ -132,7 +141,7 @@ __global__ void ransacKernel(GPU_Cloud pc, int* inlierCounts, int* modelPoints, 
     //at the final thread, write to global memory
     if(threadIdx.x == 0) {
         inlierCounts[iteration] = inliers;
-    }
+    } 
 }
 
 //to avoid kernel launch time, this could actually be appended to the bottom of the ransacKernel,
@@ -151,7 +160,7 @@ EFFECTS:
     - Selects the optimal model (the one with the greatest inlier count)
     - Outputs the points of this model 
 */
-__global__ void selectOptimalRansacModel(GPU_Cloud pc, int* inlierCounts, int* modelPoints, float* optimalModelOut) {
+__global__ void selectOptimalRansacModel(GPU_Cloud pc, float* inlierCounts, int* modelPoints, float* optimalModelOut) {
     __shared__ int inlierCountsLocal[MAX_THREADS];
     __shared__ int modelIndiciesLocal[MAX_THREADS];
     
@@ -198,7 +207,7 @@ __global__ void getInliers(GPU_Cloud pc) {
 RansacPlane::RansacPlane(Vector3d axis, float epsilon, int iterations, float threshold, int pcSize)
 : pc(pc), axis(axis), epsilon(epsilon), iterations(iterations), threshold(threshold)  {
     //Set up buffers needed for RANSAC
-    cudaMalloc(&inlierCounts, sizeof(int) * iterations); 
+    cudaMalloc(&inlierCounts, sizeof(float) * iterations); 
     cudaMalloc(&modelPoints, sizeof(int) * iterations * 3);
     cudaMalloc(&selection, sizeof(float) * 3 * 3); //selected model 3 points, each X,Y,Z (drop RGBA)
 
