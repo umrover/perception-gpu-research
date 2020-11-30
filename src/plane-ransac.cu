@@ -108,7 +108,7 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
         if(pointIdx > pc.size) return; 
         
         // point in the point cloud that could be an inlier or outlier
-        sl::float3 curPt = pc.data[pointIdx];
+        sl::float3 curPt(pc.data[pointIdx]);
         
         //calculate distance of cur pt to the plane formed by the 3 model points [see doc for the complete derrivation]
         sl::float3 d_to_model_pt = (curPt - modelPt1);
@@ -121,7 +121,7 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
         //float r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
         //int r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
        //inliers +=  (-1*abs(d - threshold)/(d - threshold) + 1 )/2 ;
-        inliers += d;// (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+        inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
         
     }
     

@@ -29,9 +29,9 @@ int main(int argc, char** argv) {
     GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
 
     //This is a cloud with data stored in GPU memory that can be acessed from CUDA kernels
-    sl::Mat gpu_cloud (camera_config.resolution, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
-
-    int pcSize = zed.getCameraInformation().camera_resolution.area();
+    sl::Resolution cloud_res(320, 180);
+    sl::Mat gpu_cloud (cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
+    int pcSize = cloud_res.area(); 
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //This is a RANSAC model that we will use
@@ -42,14 +42,16 @@ int main(int argc, char** argv) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         //grab the current point cloud
         auto grabStart = high_resolution_clock::now();
+
         zed.grab();
-        zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU); 
-        GPU_Cloud pc = getRawCloud(gpu_cloud);
-        GPU_Cloud_F4 pc_f4 = getRawCloud(gpu_cloud, true);
+        zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
+       // GPU_Cloud pc = getRawCloud(gpu_cloud);
+      //  GPU_Cloud_F4 pc_f4 = getRawCloud(gpu_cloud, true);
         auto grabEnd = high_resolution_clock::now();
         auto grabDuration = duration_cast<microseconds>(grabEnd - grabStart); 
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         
+        /*
         auto ransacStart = high_resolution_clock::now();
         ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
@@ -68,7 +70,7 @@ int main(int argc, char** argv) {
         auto blueDuration = duration_cast<microseconds>(blueEnd - blueStart); 
         cout << "blue time: " << (blueDuration.count()/1.0e3) << " ms" << endl;
         //Run RANSAC 
-        
+        */
         
         //update the viewer, the points will be blue
         viewer.updatePointCloud(gpu_cloud);
