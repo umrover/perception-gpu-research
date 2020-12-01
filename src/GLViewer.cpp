@@ -157,7 +157,7 @@ void GLViewer::render() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(bckgrnd_clr.r, bckgrnd_clr.g, bckgrnd_clr.b, 1.f);
         glLineWidth(2.f);
-        glPointSize(1.f);
+        glPointSize(3.f);
         update();
         draw();
         glutSwapBuffers();
