@@ -20,10 +20,8 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 sl::Camera zed;
 
 int main(int argc, char** argv) {
-    float4 f = make_float4(1, 2, 3, 4);
-
     sl::Resolution cloud_res(320, 180);
-
+    int k = 0;
     
     //Setup camera and viewer
     zed.open(); 
@@ -39,10 +37,13 @@ int main(int argc, char** argv) {
     //This is a RANSAC model that we will use
     RansacPlane ransac(Eigen::Vector3d(0, 1, 0), 10, 400, 100, pcSize);
 
+
+
     auto start = high_resolution_clock::now(); 
     while(viewer.isAvailable()) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         //grab the current point cloud
+        k++;
         auto grabStart = high_resolution_clock::now();
 
         zed.grab();
@@ -75,6 +76,8 @@ int main(int argc, char** argv) {
         */
         
         //update the viewer, the points will be blue
+        updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 100 + k, 0));
+
         viewer.updatePointCloud(gpu_cloud);
     }
     gpu_cloud.free();

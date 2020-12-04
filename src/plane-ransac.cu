@@ -162,11 +162,11 @@ EFFECTS:
     - Outputs the points of this model 
 */
 __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float* optimalModelOut) {
-    /*
-    __shared__ int inlierCountsLocal[MAX_THREADS];
+    
+    __shared__ float inlierCountsLocal[MAX_THREADS];
     __shared__ int modelIndiciesLocal[MAX_THREADS];
     
-    int inliers = inlierCounts[threadIdx.x];
+    float inliers = inlierCounts[threadIdx.x];
     int optimalModel = threadIdx.x;
     inlierCountsLocal[threadIdx.x] = inliers;
     modelIndiciesLocal[threadIdx.x] = optimalModel;
@@ -192,11 +192,11 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
 
     //at the final thread, write to global memory
     if(threadIdx.x < 3) {
-        float3 pt = getPoint(pc, modelPoints[optimalModel*3 + threadIdx.x]);
+        sl::float3 pt = pc.data[ modelPoints[optimalModel*3 + threadIdx.x] ];
         optimalModelOut[threadIdx.x*3] = pt.x; 
         optimalModelOut[threadIdx.x*3 + 1] = pt.y; 
         optimalModelOut[threadIdx.x*3 + 2] = pt.z; 
-    } */
+    } 
 }
 
 // this kernel is for DEBUGGING only. It will get the list of inliers so they can 
@@ -242,13 +242,16 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
     int blocks = iterations;
     int threads = MAX_THREADS;
     ransacKernel<<<blocks, threads>>>(pc, inlierCounts, modelPoints, threshold);
-    //selectOptimalRansacModel<<<1, iterations>>>(pc, inlierCounts, modelPoints, selection);
+    selectOptimalRansacModel<<<1, iterations>>>(pc, inlierCounts, modelPoints, selection);
     //might be able to use memcpyAsync() here, double check
     checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());
 
     cudaMemcpy(selectedModel, selection, sizeof(float)*3*3, cudaMemcpyDeviceToHost);
-
+    //for(int i = 0; i < 3; i++) {
+    //    cout << "model " << i << ":" << selectedModel[0] << selected 
+    //}
+    
     return {0, 0, 0, 0};
 }
 

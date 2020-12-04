@@ -105,6 +105,16 @@ Simple3DObject createFrustum(sl::CameraParameters param) {
 
 void CloseFunc(void) { if(currentInstance_)  currentInstance_->exit();}
 
+Simple3DObject* plane;
+//Not yet thread safe, mutex lock
+void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3) {
+    if(plane != nullptr) delete plane;
+    plane = new Simple3DObject(sl::Translation(0, 0, 0), true);
+    plane->addFace(p1, p2, p3, sl::float3(1.0, 0.0, 0.0));
+    plane->setDrawingType(GL_TRIANGLES);
+    plane->pushToGPU();
+}
+
 GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
 
     glutInit(&argc, argv);
@@ -149,6 +159,7 @@ GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
     glutCloseFunc(CloseFunc);
 
     available = true;
+
     return err;
 }
 
@@ -219,8 +230,18 @@ void GLViewer::draw() {
     // Axis
     glUniformMatrix4fv(shMVPMatrixLoc_, 1, GL_FALSE, sl::Transform::transpose(vpMatrix * frustum.getModelMatrix()).m);
     frustum.draw();
-    glUseProgram(0);
 
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+
+    //plane test
+    if(plane != nullptr) {
+        glUniformMatrix4fv(shMVPMatrixLoc_, 1, GL_FALSE, sl::Transform::transpose(vpMatrix * plane->getModelMatrix()).m);
+        plane->draw();
+    }
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glUseProgram(0);
     // Draw point cloud with its own shader
     pointCloud_.draw(vpMatrix);
 }
