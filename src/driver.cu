@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
 
     //Temporary DEBUG ransac model:
     int testcloudsize = 10;
-    RansacPlane testsac(sl::float3(0, 1, 0), 10, 5, 1, testcloudsize);
+    RansacPlane testsac(sl::float3(0, 1, 0), 10, 5, 0.01, testcloudsize);
     GPU_Cloud_F4 testcloud;
     cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
     testcloud.size = testcloudsize;

@@ -76,12 +76,10 @@ EFFECTS:
 */
 __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float threshold, sl::float3 axis) { 
     __shared__ float inlierField[MAX_THREADS];
-    //inlierField[threadIdx.x] = 0;
-    //int inliers = 0;
-    int iteration = blockIdx.x;
+    inlierField[threadIdx.x] = 0;
 
-    float inliers = 0;
-    //printf("axis %f %f %f\n", axis.x, axis.y, axis.z);
+    int iteration = blockIdx.x; //which "iteration" 
+    float inliers = 0; //number of inliers in this thread
 
     // select 3 random points from the cloud as the model that this particular block will evaluate
     int randIdx0 = modelPoints[iteration*3 + 0];
@@ -99,7 +97,18 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     //get a vector normal to the plane model
     sl::float3 n = sl::float3::cross(v1, v2);
 
-    if(sl::float3::dot(n/n.norm(), axis/axis.norm()) < 0.97) return;
+    if(iteration == 0 && threadIdx.x == 0) {
+        printf("model pt 0: %f %f %f \n", modelPt0.x, modelPt0.y, modelPt0.z);
+        printf("model pt 1: %f %f %f \n", modelPt1.x, modelPt1.y, modelPt1.z);
+        printf("model pt 2: %f %f %f \n", modelPt2.x, modelPt2.y, modelPt2.z);
+
+        printf("normal: %f %f %f \n", n.x, n.y, n.z);
+        printf("thresh and axis: %f --- %f %f %f \n", threshold, axis.x, axis.y, axis.z);
+
+    } 
+
+    //add this constraint later
+    //if(sl::float3::dot(n/n.norm(), axis/axis.norm()) < 0.97) return;
 
     //check that n dot desired axis is less than epsilon, if not, return here 
 
@@ -118,15 +127,22 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
         
         float d = abs(sl::float3::dot(n, d_to_model_pt)) / n.norm();
         
+        if(iteration == 0) printf("point %d is : %d with a distance of %f\n", pointIdx, (d < threshold) ? 1 : 0, d);
+
         //add a 0 if inlier, 1 if not 
-        //inliers += (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
+        inliers += (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
         //inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
         //float r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
         //int r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
        //inliers +=  (-1*abs(d - threshold)/(d - threshold) + 1 )/2 ;
-        inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+       // inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+
+        
         
     }
+
+    //if(threadIdx.x == 0) printf("[pre:] iteration %d, inlier ct: %f \n", iteration, inliers);
+
     
     //parallel reduction to get an aggregate sum of the number of inliers for this model
     //this is all equivalent to sum(inlierField), but it does it in parallel
@@ -135,7 +151,8 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     int aliveThreads = (blockDim.x) / 2;
 	while (aliveThreads > 0) {
 		if (threadIdx.x < aliveThreads) {
-			inliers += inlierField[aliveThreads + threadIdx.x];
+            inliers += inlierField[aliveThreads + threadIdx.x];
+            //if(iteration == 0 && threadIdx.x == 0) printf("t0: %f \n", inliers);
 			if (threadIdx.x >= (aliveThreads) / 2) inlierField[threadIdx.x] = inliers;
 		}
 		__syncthreads();
@@ -145,6 +162,8 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     //at the final thread, write to global memory
     if(threadIdx.x == 0) {
         inlierCounts[iteration] = inliers;
+
+        printf("iteration %d, inlier ct: %f == %f \n", iteration, inlierCounts[iteration], inliers);
     } 
 }
 
@@ -221,7 +240,7 @@ RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float t
     //Generate random numbers in CPU to use in RANSAC kernel
     int* randomNumsCPU = (int*) malloc(sizeof(int) * iterations* 3);
     for(int i = 0; i < iterations*3; i++) {
-        randomNumsCPU[i] = rand() % pcSize;
+        randomNumsCPU[i] = rand() % pcSize; //we have to prevent duplicate randoms in the same iteration
 
         
         if(i%3 == 0 ) std::cout << std::endl;
