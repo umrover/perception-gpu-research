@@ -251,8 +251,11 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
     //for(int i = 0; i < 3; i++) {
     //    cout << "model " << i << ":" << selectedModel[0] << selected 
     //}
+    Plane plane = {sl::float3(selectedModel[0], selectedModel[1], selectedModel[2]), 
+                         sl::float3(selectedModel[3], selectedModel[4], selectedModel[5]) ,
+                         sl::float3(selectedModel[6], selectedModel[7], selectedModel[8])};
     
-    return {0, 0, 0, 0};
+    return plane;
 }
 
 /*

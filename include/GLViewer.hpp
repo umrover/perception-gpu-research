@@ -257,6 +257,6 @@ private:
     GLuint shMVPMatrixLoc_;
 };
 
-void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3);
+void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3, float scale);
 
 #endif /* __VIEWER_INCLUDE__ */

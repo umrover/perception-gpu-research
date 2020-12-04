@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
         
         
         auto ransacStart = high_resolution_clock::now();
-        ransac.computeModel(pc_f4);
+        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
@@ -76,7 +76,8 @@ int main(int argc, char** argv) {
         */
         
         //update the viewer, the points will be blue
-        updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 100 + k, 0));
+        //updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 100, 0), 1.5);
+        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 1.5);
 
         viewer.updatePointCloud(gpu_cloud);
     }

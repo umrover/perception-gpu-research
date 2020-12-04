@@ -107,10 +107,28 @@ void CloseFunc(void) { if(currentInstance_)  currentInstance_->exit();}
 
 Simple3DObject* plane;
 //Not yet thread safe, mutex lock
-void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3) {
+void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3, float scale) {
     if(plane != nullptr) delete plane;
     plane = new Simple3DObject(sl::Translation(0, 0, 0), true);
-    plane->addFace(p1, p2, p3, sl::float3(1.0, 0.0, 0.0));
+
+    sl::float3 v1 = p2 - p1; //two vectors on the plane
+    sl::float3 v2 = p3 - p1; 
+    
+    float s = scale;
+    sl::float3 adj1 = p1 - v1*s - v2*s;
+    sl::float3 adj2 = adj1 + v1*4*s;
+    sl::float3 adj3 = adj1 + v2*4*s;
+
+    plane->addFace(adj1, adj2, adj3, sl::float3(1.0, 0.0, 0.0));
+
+    /*
+    sl::float3 second1 = adj2 + v2*4*s;
+    sl::float3 second2 = adj2;
+    sl::float3 second3 = adj3;
+
+    plane->addFace(second1, second2, second3, sl::float3(0.0, 1.0, 0.0));
+    */
+
     plane->setDrawingType(GL_TRIANGLES);
     plane->pushToGPU();
 }

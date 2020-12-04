@@ -9,11 +9,9 @@ using namespace Eigen;
 class RansacPlane {
     public:
         struct Plane {
-            float a;
-            float b; 
-            float c;
-            float d;
-
+            sl::float3 p1;
+            sl::float3 p2;
+            sl::float3 p3;
         };
 
         /*
