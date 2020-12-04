@@ -25,7 +25,7 @@ class RansacPlane {
         - Computes a plane perpendicular to the given axis within the tolerance that fits 
         the most data using the RANSAC algorithm
         */
-        RansacPlane(Vector3d axis, float epsilon, int iterations, float threshold,  int pcSize);
+        RansacPlane(sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize);
 
         ~RansacPlane();
 
@@ -52,7 +52,7 @@ class RansacPlane {
         //user given model parms
         GPU_Cloud_F4 pc;
         GPU_Indicies inliers;
-        Vector3d axis;
+        sl::float3 axis;
         float epsilon;
         int iterations;
         float threshold;

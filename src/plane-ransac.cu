@@ -74,13 +74,14 @@ EFFECTS:
     participate in a parallel reduction to give the total number of inliers for that block/model, 
     which will be returned from the kernel in the inlierCounts buffer. 
 */
-__global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float threshold) { 
+__global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float threshold, sl::float3 axis) { 
     __shared__ float inlierField[MAX_THREADS];
     //inlierField[threadIdx.x] = 0;
     //int inliers = 0;
     int iteration = blockIdx.x;
 
     float inliers = 0;
+    //printf("axis %f %f %f\n", axis.x, axis.y, axis.z);
 
     // select 3 random points from the cloud as the model that this particular block will evaluate
     int randIdx0 = modelPoints[iteration*3 + 0];
@@ -97,6 +98,8 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     
     //get a vector normal to the plane model
     sl::float3 n = sl::float3::cross(v1, v2);
+
+    if(sl::float3::dot(n/n.norm(), axis/axis.norm()) < 0.97) return;
 
     //check that n dot desired axis is less than epsilon, if not, return here 
 
@@ -206,19 +209,27 @@ __global__ void getInliers(GPU_Cloud pc) {
 }
 
 
-RansacPlane::RansacPlane(Vector3d axis, float epsilon, int iterations, float threshold, int pcSize)
+RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float threshold, int pcSize)
 : pc(pc), axis(axis), epsilon(epsilon), iterations(iterations), threshold(threshold)  {
     //Set up buffers needed for RANSAC
     cudaMalloc(&inlierCounts, sizeof(float) * iterations); 
     cudaMalloc(&modelPoints, sizeof(int) * iterations * 3);
     cudaMalloc(&selection, sizeof(float) * 3 * 3); //selected model 3 points, each X,Y,Z (drop RGBA)
 
-    
+    std::cout << "RANSAC Constructor, random indicies: " << std::endl;
+
     //Generate random numbers in CPU to use in RANSAC kernel
     int* randomNumsCPU = (int*) malloc(sizeof(int) * iterations* 3);
     for(int i = 0; i < iterations*3; i++) {
         randomNumsCPU[i] = rand() % pcSize;
+
+        
+        if(i%3 == 0 ) std::cout << std::endl;
+        std::cout << randomNumsCPU[i] << " ";
     }
+
+    std::cout << std::endl << std::endl;
+
     cudaMemcpy(modelPoints, randomNumsCPU, sizeof(int) * iterations * 3, cudaMemcpyHostToDevice);
     free(randomNumsCPU);
 
@@ -241,7 +252,7 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
 
     int blocks = iterations;
     int threads = MAX_THREADS;
-    ransacKernel<<<blocks, threads>>>(pc, inlierCounts, modelPoints, threshold);
+    ransacKernel<<<blocks, threads>>>(pc, inlierCounts, modelPoints, threshold, axis);
     selectOptimalRansacModel<<<1, iterations>>>(pc, inlierCounts, modelPoints, selection);
     //might be able to use memcpyAsync() here, double check
     checkStatus(cudaGetLastError());
