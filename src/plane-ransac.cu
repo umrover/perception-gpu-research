@@ -239,7 +239,7 @@ RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float t
         randomNumsCPU[i*3 + 2] = c; 
 
         
-        std::cout << a <<  ", " << b << ", " << c << std::endl;
+       // std::cout << a <<  ", " << b << ", " << c << std::endl;
     }
     /*
     randomNumsCPU[0] = 2;
