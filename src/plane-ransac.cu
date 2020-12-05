@@ -98,13 +98,14 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     sl::float3 n = sl::float3::cross(v1, v2);
 
     if(iteration == 0 && threadIdx.x == 0) {
+        /*
         printf("model pt 0: %f %f %f \n", modelPt0.x, modelPt0.y, modelPt0.z);
         printf("model pt 1: %f %f %f \n", modelPt1.x, modelPt1.y, modelPt1.z);
         printf("model pt 2: %f %f %f \n", modelPt2.x, modelPt2.y, modelPt2.z);
 
         printf("normal: %f %f %f \n", n.x, n.y, n.z);
         printf("thresh and axis: %f --- %f %f %f \n", threshold, axis.x, axis.y, axis.z);
-
+        */
     } 
 
     //add this constraint later
@@ -117,7 +118,7 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     for(int i = 0; i < pointsPerThread; i++) {
         // select a point index or return if this isn't a valid point
         int pointIdx = threadIdx.x * pointsPerThread + i;
-        if(pointIdx > pc.size) return; 
+        if(pointIdx >= pc.size) return; 
         
         // point in the point cloud that could be an inlier or outlier
         sl::float3 curPt(pc.data[pointIdx]);
@@ -127,15 +128,11 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
         
         float d = abs(sl::float3::dot(n, d_to_model_pt)) / n.norm();
         
-        if(iteration == 0) printf("point %d is : %d with a distance of %f\n", pointIdx, (d < threshold) ? 1 : 0, d);
+        //if(iteration == 0) printf("point %d is : %d with a distance of %f\n", pointIdx, (d < threshold) ? 1 : 0, d);
 
         //add a 0 if inlier, 1 if not 
-        inliers += (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
-        //inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
-        //float r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
-        //int r = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
-       //inliers +=  (-1*abs(d - threshold)/(d - threshold) + 1 )/2 ;
-       // inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+        //inliers += (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
+        inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
 
         
         
@@ -183,12 +180,13 @@ EFFECTS:
     - Selects the optimal model (the one with the greatest inlier count)
     - Outputs the points of this model 
 */
-__global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float* optimalModelOut) {
+__global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float* optimalModelOut, int iterations) {
     
     __shared__ float inlierCountsLocal[MAX_THREADS];
     __shared__ int modelIndiciesLocal[MAX_THREADS];
-    
-    float inliers = inlierCounts[threadIdx.x];
+    //PROBLEM: This can easily index out of bounds if threadIdx.x > numPoints in the PC
+    //another problem:  we must initalize the inlierCountsLocal with low valeus that wont be chosen
+    float inliers = (threadIdx.x < iterations) ? inlierCounts[threadIdx.x] : 0;
     int optimalModel = threadIdx.x;
     inlierCountsLocal[threadIdx.x] = inliers;
     modelIndiciesLocal[threadIdx.x] = optimalModel;
@@ -214,7 +212,8 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
 
     //at the final thread, write to global memory
     if(threadIdx.x < 3) {
-        sl::float3 pt = pc.data[ modelPoints[optimalModel*3 + threadIdx.x] ];
+        printf("--> model with most inliers is model: %d \n", modelIndiciesLocal[0]);
+        sl::float3 pt = pc.data[ modelPoints[modelIndiciesLocal[0]*3 + threadIdx.x] ];
         optimalModelOut[threadIdx.x*3] = pt.x; 
         optimalModelOut[threadIdx.x*3 + 1] = pt.y; 
         optimalModelOut[threadIdx.x*3 + 2] = pt.z; 
@@ -239,13 +238,29 @@ RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float t
 
     //Generate random numbers in CPU to use in RANSAC kernel
     int* randomNumsCPU = (int*) malloc(sizeof(int) * iterations* 3);
-    for(int i = 0; i < iterations*3; i++) {
-        randomNumsCPU[i] = rand() % pcSize; //we have to prevent duplicate randoms in the same iteration
+
+    for(int i = 0; i < iterations; i++) {
+        int a = 0;
+        int b = 0;
+        int c = 0;
+        while(a == b || b == c || a == c) {
+            a = rand() % pcSize;
+            b = rand() % pcSize;
+            c = rand() % pcSize;
+        }
+    
+        randomNumsCPU[i*3] = a;
+        randomNumsCPU[i*3 + 1] = b;
+        randomNumsCPU[i*3 + 2] = c; 
 
         
-        if(i%3 == 0 ) std::cout << std::endl;
-        std::cout << randomNumsCPU[i] << " ";
+        std::cout << a <<  ", " << b << ", " << c << std::endl;
     }
+    /*
+    randomNumsCPU[0] = 2;
+    randomNumsCPU[1] = 8;
+    randomNumsCPU[2] = 1;
+    */
 
     std::cout << std::endl << std::endl;
 
@@ -272,7 +287,7 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
     int blocks = iterations;
     int threads = MAX_THREADS;
     ransacKernel<<<blocks, threads>>>(pc, inlierCounts, modelPoints, threshold, axis);
-    selectOptimalRansacModel<<<1, iterations>>>(pc, inlierCounts, modelPoints, selection);
+    selectOptimalRansacModel<<<1, MAX_THREADS>>>(pc, inlierCounts, modelPoints, selection, iterations);
     //might be able to use memcpyAsync() here, double check
     checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());
