@@ -92,26 +92,17 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     // get the two vectors on the plane defined by the model points
     sl::float3 v1 (modelPt1 - modelPt0);
     sl::float3 v2 (modelPt2 - modelPt0);
-
     
     //get a vector normal to the plane model
     sl::float3 n = sl::float3::cross(v1, v2);
 
-    if(iteration == 0 && threadIdx.x == 0) {
-        /*
-        printf("model pt 0: %f %f %f \n", modelPt0.x, modelPt0.y, modelPt0.z);
-        printf("model pt 1: %f %f %f \n", modelPt1.x, modelPt1.y, modelPt1.z);
-        printf("model pt 2: %f %f %f \n", modelPt2.x, modelPt2.y, modelPt2.z);
-
-        printf("normal: %f %f %f \n", n.x, n.y, n.z);
-        printf("thresh and axis: %f --- %f %f %f \n", threshold, axis.x, axis.y, axis.z);
-        */
-    } 
-
     //add this constraint later
-    //if(sl::float3::dot(n/n.norm(), axis/axis.norm()) < 0.97) return;
-
     //check that n dot desired axis is less than epsilon, if not, return here 
+    if(abs(sl::float3::dot(n/n.norm(), axis/axis.norm())) < 0.97) {
+        //if(threadIdx.x == 0) printf("eliminating model for axis tolerance failure %d \n", iteration);
+        return;
+    }
+
 
     // figure out how many points each thread must compute distance for and determine if each is inlier/outlier
     int pointsPerThread = ceilDivGPU(pc.size, MAX_THREADS);
@@ -128,8 +119,6 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
         
         float d = abs(sl::float3::dot(n, d_to_model_pt)) / n.norm();
         
-        //if(iteration == 0) printf("point %d is : %d with a distance of %f\n", pointIdx, (d < threshold) ? 1 : 0, d);
-
         //add a 0 if inlier, 1 if not 
         //inliers += (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
         inliers += (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
@@ -137,9 +126,6 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
         
         
     }
-
-    //if(threadIdx.x == 0) printf("[pre:] iteration %d, inlier ct: %f \n", iteration, inliers);
-
     
     //parallel reduction to get an aggregate sum of the number of inliers for this model
     //this is all equivalent to sum(inlierField), but it does it in parallel
@@ -159,8 +145,7 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     //at the final thread, write to global memory
     if(threadIdx.x == 0) {
         inlierCounts[iteration] = inliers;
-
-        printf("iteration %d, inlier ct: %f == %f \n", iteration, inlierCounts[iteration], inliers);
+        //printf("iteration %d, inlier ct: %f == %f \n", iteration, inlierCounts[iteration], inliers);
     } 
 }
 
@@ -212,7 +197,7 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
 
     //at the final thread, write to global memory
     if(threadIdx.x < 3) {
-        printf("--> model with most inliers is model: %d \n", modelIndiciesLocal[0]);
+        //printf("--> model with most inliers is model: %d \n", modelIndiciesLocal[0]);
         sl::float3 pt = pc.data[ modelPoints[modelIndiciesLocal[0]*3 + threadIdx.x] ];
         optimalModelOut[threadIdx.x*3] = pt.x; 
         optimalModelOut[threadIdx.x*3 + 1] = pt.y; 
