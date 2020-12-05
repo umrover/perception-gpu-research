@@ -165,7 +165,7 @@ EFFECTS:
     - Selects the optimal model (the one with the greatest inlier count)
     - Outputs the points of this model 
 */
-__global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float* optimalModelOut, int iterations) {
+__global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoints, float* optimalModelOut, int iterations, int* optimalModelIndex) {
     
     __shared__ float inlierCountsLocal[MAX_THREADS];
     __shared__ int modelIndiciesLocal[MAX_THREADS];
@@ -203,12 +203,50 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
         optimalModelOut[threadIdx.x*3 + 1] = pt.y; 
         optimalModelOut[threadIdx.x*3 + 2] = pt.z; 
     } 
+    if(threadIdx.x == 0) *optimalModelIndex = modelIndiciesLocal[0];
 }
 
 // this kernel is for DEBUGGING only. It will get the list of inliers so they can 
 // be displayed. In competition, it is not necessary to have this information. 
-__global__ void getInliers(GPU_Cloud pc) {
 
+__global__ void computeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* modelPoints, float threshold) {
+    
+    sl::float3 modelPt0 (pc.data[modelPoints[*optimalModelIndex*3]]);
+    sl::float3 modelPt1 (pc.data[modelPoints[*optimalModelIndex*3 + 1]]);
+    sl::float3 modelPt2 (pc.data[modelPoints[*optimalModelIndex*3 + 2]]);
+
+    // get the two vectors on the plane defined by the model points
+    sl::float3 v1 (modelPt1 - modelPt0);
+    sl::float3 v2 (modelPt2 - modelPt0);
+    
+    //get a vector normal to the plane model
+    sl::float3 n = sl::float3::cross(v1, v2);
+
+    // figure out how many points each thread must compute distance for and determine if each is inlier/outlier
+    int pointsPerThread = ceilDivGPU(pc.size, MAX_THREADS);
+    for(int i = 0; i < pointsPerThread; i++) {
+        // select a point index or return if this isn't a valid point
+        int pointIdx = threadIdx.x * pointsPerThread + i;
+        if(pointIdx >= pc.size) return; 
+        
+        // point in the point cloud that could be an inlier or outlier
+        sl::float3 curPt(pc.data[pointIdx]);
+        
+        //calculate distance of cur pt to the plane formed by the 3 model points [see doc for the complete derrivation]
+        sl::float3 d_to_model_pt = (curPt - modelPt1);
+        
+        float d = abs(sl::float3::dot(n, d_to_model_pt)) / n.norm();
+        
+        //add a 0 if inlier, 1 if not 
+        int flag = (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
+        //int flag = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+        
+        if(flag != 0) {
+            pc.data[pointIdx].w = 100;
+        }
+
+        
+    }
 }
 
 
@@ -218,6 +256,7 @@ RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float t
     cudaMalloc(&inlierCounts, sizeof(float) * iterations); 
     cudaMalloc(&modelPoints, sizeof(int) * iterations * 3);
     cudaMalloc(&selection, sizeof(float) * 3 * 3); //selected model 3 points, each X,Y,Z (drop RGBA)
+    cudaMalloc(&optimalModelIndex, sizeof(int));
 
     std::cout << "RANSAC Constructor, random indicies: " << std::endl;
 
@@ -237,7 +276,6 @@ RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float t
         randomNumsCPU[i*3] = a;
         randomNumsCPU[i*3 + 1] = b;
         randomNumsCPU[i*3 + 2] = c; 
-
         
        // std::cout << a <<  ", " << b << ", " << c << std::endl;
     }
@@ -272,7 +310,9 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
     int blocks = iterations;
     int threads = MAX_THREADS;
     ransacKernel<<<blocks, threads>>>(pc, inlierCounts, modelPoints, threshold, axis);
-    selectOptimalRansacModel<<<1, MAX_THREADS>>>(pc, inlierCounts, modelPoints, selection, iterations);
+    selectOptimalRansacModel<<<1, MAX_THREADS>>>(pc, inlierCounts, modelPoints, selection, iterations, optimalModelIndex);
+    computeInliers<<<1, threads>>>(pc, optimalModelIndex, modelPoints, threshold);
+
     //might be able to use memcpyAsync() here, double check
     checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());

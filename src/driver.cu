@@ -25,7 +25,9 @@ int main(int argc, char** argv) {
     int k = 0;
     
     //Setup camera and viewer
-    zed.open(); 
+    sl::InitParameters init_params;
+    init_params.coordinate_units = sl::UNIT::MILLIMETER;
+    zed.open(init_params); 
     GLViewer viewer;
     auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
     GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
@@ -36,7 +38,7 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //This is a RANSAC model that we will use
-    RansacPlane ransac(sl::float3(1, 0, 0), 10, 400, 100, pcSize);
+    RansacPlane ransac(sl::float3(1, 0, 0), 10, 400, 50.8, pcSize);
 
     //Temporary DEBUG ransac model:
     /*
@@ -109,7 +111,7 @@ int main(int argc, char** argv) {
       //  updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 0, 100), 1.5);
 
 
-        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 1.5);
+        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 300.5);
 
         viewer.updatePointCloud(gpu_cloud);
     }

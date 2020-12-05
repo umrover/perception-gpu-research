@@ -62,6 +62,7 @@ class RansacPlane {
         int* modelPoints; 
         float* selection;
         int* inlierListGPU;
+        int* optimalModelIndex;
 
         //internal info [CPU]
         float* selectedModel;

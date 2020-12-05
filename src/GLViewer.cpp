@@ -113,6 +113,8 @@ void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3, float scale)
 
     sl::float3 v1 = p2 - p1; //two vectors on the plane
     sl::float3 v2 = p3 - p1; 
+    v1 /= v1.norm();
+    v2 /= v2.norm();
     
     float s = scale;
     sl::float3 adj1 = p1 - v1*s - v2*s;
