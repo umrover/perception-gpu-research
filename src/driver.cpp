@@ -1,3 +1,4 @@
+
 #include <sl/Camera.hpp>
 #include "GLViewer.hpp"
 //#include "test-filter.hpp"
@@ -8,6 +9,7 @@
 #include <chrono> 
 #include "test-filter-f4.hpp"
 
+#include "pcl.hpp"
 
 using namespace std::chrono; 
 
@@ -19,7 +21,8 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 
 sl::Camera zed;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) {  
+    
     sl::Resolution cloud_res(320/2, 180/2);
     //sl::Resolution cloud_res_temp(10, 1);
     int k = 0;
@@ -39,37 +42,23 @@ int main(int argc, char** argv) {
 
     //This is a RANSAC model that we will use
     RansacPlane ransac(sl::float3(0, 1, 0), 10, 400, 100.8, pcSize);
-
-    //Temporary DEBUG ransac model:
-    /*
-    int testcloudsize = 10;
-    RansacPlane testsac(sl::float3(0, 1, 0), 10, 5, 0.01, testcloudsize);
-    GPU_Cloud_F4 testcloud;
-    cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
-    testcloud.size = testcloudsize;
-    sl::float4 dataCPU[testcloudsize] = {
-        sl::float4(0.1, 0, 0, 4545), 
-        sl::float4(10, 0, 0, 4545),
-        sl::float4(-10, 0, 0.4, 4545),
-        sl::float4(0, 0, 10, 4545),
-        sl::float4(10, 0, 10, 4545),
-        sl::float4(-10, 0, 10,4545),
-        sl::float4(-5, 3, 10,4545),
-        sl::float4(5, 2, 5,4545),
-        sl::float4(2, 5, 2,4545),
-        sl::float4(4, -4, 2,4545),
-    };
-    cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
-    for(int i = 0; i < 1; i++) {
-        RansacPlane::Plane planePoints = testsac.computeModel(testcloud);
-        cout << "ransac says p1: " << planePoints.p1 << endl;
-        cout << "ransac says p2: " << planePoints.p2 << endl;
-        cout << "ransac says p3: " << planePoints.p3 << endl;
-        cout << " ------------------------------------------- " << endl << endl;
-    }*/
     
 
     auto start = high_resolution_clock::now(); 
+    
+    /*
+    int iter = 0;
+	readData(); //Load the pcd file names into pcd_names
+	setPointCloud(0); //Set the first point cloud to be the first of the files
+	pclViewer = createRGBVisualizer(pc); //Create an RGB visualizer for said cloud
+    while(true) {
+
+		iter++; 
+		pclViewer->updatePointCloud(pc); //update the viewer 
+    	pclViewer->spinOnce(10); //pcl spin wait
+		setPointCloud(iter); //load next point cloud into the same pointer
+	}*/
+
     while(viewer.isAvailable()) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         //grab the current point cloud
@@ -106,16 +95,11 @@ int main(int argc, char** argv) {
         */
         
         //update the viewer, the points will be blue
-//.        updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 100, 0), 1.5);
-
-      //  updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 0, 100), 1.5);
-
-
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
 
         viewer.updatePointCloud(gpu_cloud);
     }
     gpu_cloud.free();
-    zed.close();
+    zed.close(); 
     return 1;
 }
