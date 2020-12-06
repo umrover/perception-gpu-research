@@ -20,7 +20,7 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 sl::Camera zed;
 
 int main(int argc, char** argv) {
-    sl::Resolution cloud_res(320, 180);
+    sl::Resolution cloud_res(320/2, 180/2);
     //sl::Resolution cloud_res_temp(10, 1);
     int k = 0;
     
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //This is a RANSAC model that we will use
-    RansacPlane ransac(sl::float3(1, 0, 0), 10, 400, 50.8, pcSize);
+    RansacPlane ransac(sl::float3(0, 1, 0), 10, 400, 100.8, pcSize);
 
     //Temporary DEBUG ransac model:
     /*
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
       //  updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 0, 100), 1.5);
 
 
-        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 300.5);
+        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
 
         viewer.updatePointCloud(gpu_cloud);
     }
