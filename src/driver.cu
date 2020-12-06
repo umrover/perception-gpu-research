@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
       //  updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 0, 100), 1.5);
 
 
-        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
+        //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
 
         viewer.updatePointCloud(gpu_cloud);
     }

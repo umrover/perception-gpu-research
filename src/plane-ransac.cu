@@ -207,7 +207,9 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
     if(threadIdx.x == 0) {
         printf("winner model inliers: %f \n", inlierCountsLocal[0]);
         //check here if the inlier counts local is 0, if so return -1 instead
-        *optimalModelIndex = modelIndiciesLocal[0];
+        if(inlierCountsLocal[0] > 1.0) {
+            *optimalModelIndex = modelIndiciesLocal[0];
+        } else *optimalModelIndex = -1;
     }
 }
 
@@ -215,7 +217,7 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
 // be displayed. In competition, it is not necessary to have this information. 
 
 __global__ void computeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* modelPoints, float threshold, sl::float3 axis) {
-    
+    if(*optimalModelIndex < 0) return;
     sl::float3 modelPt0 (pc.data[modelPoints[*optimalModelIndex*3]]);
     sl::float3 modelPt1 (pc.data[modelPoints[*optimalModelIndex*3 + 1]]);
     sl::float3 modelPt2 (pc.data[modelPoints[*optimalModelIndex*3 + 2]]);
