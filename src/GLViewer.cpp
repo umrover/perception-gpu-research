@@ -113,6 +113,8 @@ void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3, float scale)
 
     sl::float3 v1 = p2 - p1; //two vectors on the plane
     sl::float3 v2 = p3 - p1; 
+    v1 /= v1.norm();
+    v2 /= v2.norm();
     
     float s = scale;
     sl::float3 adj1 = p1 - v1*s - v2*s;
@@ -186,7 +188,7 @@ void GLViewer::render() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(bckgrnd_clr.r, bckgrnd_clr.g, bckgrnd_clr.b, 1.f);
         glLineWidth(2.f);
-        glPointSize(3.f);
+        glPointSize(6.f); //1, 3
         update();
         draw();
         glutSwapBuffers();

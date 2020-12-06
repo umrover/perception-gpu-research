@@ -20,11 +20,14 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 sl::Camera zed;
 
 int main(int argc, char** argv) {
-    sl::Resolution cloud_res(320, 180);
+    sl::Resolution cloud_res(320/2, 180/2);
+    //sl::Resolution cloud_res_temp(10, 1);
     int k = 0;
     
     //Setup camera and viewer
-    zed.open(); 
+    sl::InitParameters init_params;
+    init_params.coordinate_units = sl::UNIT::MILLIMETER;
+    zed.open(init_params); 
     GLViewer viewer;
     auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
     GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
@@ -35,9 +38,36 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //This is a RANSAC model that we will use
-    RansacPlane ransac(Eigen::Vector3d(0, 1, 0), 10, 400, 100, pcSize);
+    RansacPlane ransac(sl::float3(0, 1, 0), 10, 400, 100.8, pcSize);
 
-
+    //Temporary DEBUG ransac model:
+    /*
+    int testcloudsize = 10;
+    RansacPlane testsac(sl::float3(0, 1, 0), 10, 5, 0.01, testcloudsize);
+    GPU_Cloud_F4 testcloud;
+    cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
+    testcloud.size = testcloudsize;
+    sl::float4 dataCPU[testcloudsize] = {
+        sl::float4(0.1, 0, 0, 4545), 
+        sl::float4(10, 0, 0, 4545),
+        sl::float4(-10, 0, 0.4, 4545),
+        sl::float4(0, 0, 10, 4545),
+        sl::float4(10, 0, 10, 4545),
+        sl::float4(-10, 0, 10,4545),
+        sl::float4(-5, 3, 10,4545),
+        sl::float4(5, 2, 5,4545),
+        sl::float4(2, 5, 2,4545),
+        sl::float4(4, -4, 2,4545),
+    };
+    cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
+    for(int i = 0; i < 1; i++) {
+        RansacPlane::Plane planePoints = testsac.computeModel(testcloud);
+        cout << "ransac says p1: " << planePoints.p1 << endl;
+        cout << "ransac says p2: " << planePoints.p2 << endl;
+        cout << "ransac says p3: " << planePoints.p3 << endl;
+        cout << " ------------------------------------------- " << endl << endl;
+    }*/
+    
 
     auto start = high_resolution_clock::now(); 
     while(viewer.isAvailable()) {
@@ -76,8 +106,12 @@ int main(int argc, char** argv) {
         */
         
         //update the viewer, the points will be blue
-        //updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 100, 0), 1.5);
-        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 1.5);
+//.        updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 100, 0), 1.5);
+
+      //  updateRansacPlane(sl::float3(-100, 0, 0), sl::float3(100, 0, 0), sl::float3(100, 0, 100), 1.5);
+
+
+        //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
 
         viewer.updatePointCloud(gpu_cloud);
     }
