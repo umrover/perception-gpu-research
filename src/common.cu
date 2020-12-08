@@ -35,6 +35,7 @@ inline float convertColor(float colorIn) {
 }
 
 //Taken from mrover code, creates a PCL pointcloud from a zed GPU cloud
+/*
 void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Mat zed_cloud) {
   sl::Mat zed_cloud_cpu;
   zed_cloud.copyTo(zed_cloud_cpu,  sl::COPY_TYPE::GPU_CPU);
@@ -54,7 +55,7 @@ void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Ma
     index += 4;
   }
 
-} 
+} */
 
 GPU_Cloud getRawCloud(sl::Mat zed_cloud) {
     GPU_Cloud g;

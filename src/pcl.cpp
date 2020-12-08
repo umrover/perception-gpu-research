@@ -96,6 +96,37 @@ void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Ma
 
 } */
 
+inline float convertColor(float colorIn) {
+    uint32_t color_uint = *(uint32_t *) & colorIn;
+    unsigned char *color_uchar = (unsigned char *) &color_uint;
+    color_uint = ((uint32_t) color_uchar[0] << 16 | (uint32_t) color_uchar[1] << 8 | (uint32_t) color_uchar[2]);
+    return *reinterpret_cast<float *> (&color_uint);
+}
+
+void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Mat zed_cloud) {
+  sl::Mat zed_cloud_cpu;
+  zed_cloud.copyTo(zed_cloud_cpu,  sl::COPY_TYPE::GPU_CPU);
+ 
+  p_pcl_point_cloud->points.resize(zed_cloud.getResolution().area());
+
+	
+  float* p_data_cloud = zed_cloud_cpu.getPtr<float>();
+  int index = 0;
+  for (auto &it : p_pcl_point_cloud->points) {
+    float X = p_data_cloud[index];
+    if (!isValidMeasure(X)) // Checking if it's a valid point
+        it.x = it.y = it.z = it.rgb = 0;
+    else {
+        it.x = X;
+        it.y = p_data_cloud[index + 1];
+        it.z = p_data_cloud[index + 2];
+        it.rgb = convertColor(p_data_cloud[index + 3]); // Convert a 32bits float into a pcl .rgb format
+    }
+    index += 4;
+  }
+
+} 
+
 void pclToZed(sl::Mat &zed, pcl::PointCloud<pcl::PointXYZRGB>::Ptr & pcl) {
 	//run the downsample voxel filter here on the read in pcl cloud
 	//std::cout << "pcl \n" << std::endl;

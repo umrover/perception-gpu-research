@@ -50,6 +50,7 @@ int main(int argc, char** argv) {
     int iter = 0;
 	readData(); //Load the pcd file names into pcd_names
 	setPointCloud(120); //Set the first point cloud to be the first of the files
+    pclViewer = createRGBVisualizer(pc_pcl);
     /*
 	pclViewer = createRGBVisualizer(pc); //Create an RGB visualizer for said cloud
     while(true) {
@@ -64,10 +65,17 @@ int main(int argc, char** argv) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         //grab the current point cloud
         k++;
+
+       // if(k > 500) setPointCloud(k-500);
+        //else continue;
+        //sl::Mat pclTest(sl::Resolution(320, 180), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
+        //pclToZed(pclTest, pc_pcl);
+
         auto grabStart = high_resolution_clock::now();
 
-        zed.grab();
-        zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
+        /*
+       //zed.grab();
+        //zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
         GPU_Cloud pc = getRawCloud(gpu_cloud);
         GPU_Cloud_F4 pc_f4 = getRawCloud(gpu_cloud, true);
         auto grabEnd = high_resolution_clock::now();
@@ -80,7 +88,7 @@ int main(int argc, char** argv) {
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        */
 
         //run a custom CUDA filter that will color the cloud blue
         //TestFilter test_filter(gpu_cloud);
@@ -94,14 +102,18 @@ int main(int argc, char** argv) {
         cout << "blue time: " << (blueDuration.count()/1.0e3) << " ms" << endl;
         //Run RANSAC 
         */
-        if(k > 500) setPointCloud(k-500);
-        sl::Mat pclTest(sl::Resolution(320, 180), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
-        pclToZed(pclTest, pc_pcl);
+        
+        zed.grab();
+        zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
+        ZedToPcl(pc_pcl, gpu_cloud);
+
+        pclViewer->updatePointCloud(pc_pcl); //update the viewer 
+    	pclViewer->spinOnce(10);
         
         //update the viewer, the points will be blue
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
 
-        viewer.updatePointCloud(pclTest);
+        //viewer.updatePointCloud(pclTest);
        // viewer.updatePointCloud(gpu_cloud);
     }
     gpu_cloud.free();
