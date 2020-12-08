@@ -46,10 +46,11 @@ int main(int argc, char** argv) {
 
     auto start = high_resolution_clock::now(); 
     
-    /*
+    
     int iter = 0;
 	readData(); //Load the pcd file names into pcd_names
-	setPointCloud(0); //Set the first point cloud to be the first of the files
+	setPointCloud(120); //Set the first point cloud to be the first of the files
+    /*
 	pclViewer = createRGBVisualizer(pc); //Create an RGB visualizer for said cloud
     while(true) {
 
@@ -93,11 +94,15 @@ int main(int argc, char** argv) {
         cout << "blue time: " << (blueDuration.count()/1.0e3) << " ms" << endl;
         //Run RANSAC 
         */
+        if(k > 500) setPointCloud(k-500);
+        sl::Mat pclTest(sl::Resolution(320, 180), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
+        pclToZed(pclTest, pc_pcl);
         
         //update the viewer, the points will be blue
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
 
-        viewer.updatePointCloud(gpu_cloud);
+        viewer.updatePointCloud(pclTest);
+       // viewer.updatePointCloud(gpu_cloud);
     }
     gpu_cloud.free();
     zed.close(); 

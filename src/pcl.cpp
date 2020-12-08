@@ -23,13 +23,16 @@
 
 #include "pcl.hpp"
 
+
 using namespace std;
 #define PCD_FOLDER "../data"
 
 vector<string> pcd_names;
 
 shared_ptr<pcl::visualization::PCLVisualizer> pclViewer; // = pointcloud.createRGBVisualizer();
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+auto &pc = pc_pcl;
 
 void readData() {
 	//Long-winded directory opening (no glob, sad)
@@ -65,6 +68,13 @@ void setPointCloud(int i) {
 
 //Taken from mrover code, creates a PCL pointcloud from a zed GPU cloud
 /*
+inline float convertColor(float colorIn) {
+    uint32_t color_uint = *(uint32_t *) & colorIn;
+    unsigned char *color_uchar = (unsigned char *) &color_uint;
+    color_uint = ((uint32_t) color_uchar[0] << 16 | (uint32_t) color_uchar[1] << 8 | (uint32_t) color_uchar[2]);
+    return *reinterpret_cast<float *> (&color_uint);
+}
+
 void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Mat zed_cloud) {
   sl::Mat zed_cloud_cpu;
   zed_cloud.copyTo(zed_cloud_cpu,  sl::COPY_TYPE::GPU_CPU);
@@ -88,15 +98,46 @@ void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Ma
 
 void pclToZed(sl::Mat &zed, pcl::PointCloud<pcl::PointXYZRGB>::Ptr & pcl) {
 	//run the downsample voxel filter here on the read in pcl cloud
+	//std::cout << "pcl \n" << std::endl;
+	sl::Resolution cloudRes(pcl->width, pcl->height);
+	//std::cout << "done \n" << std::endl;
 
 	//Construct a zed CPU cloud
-	zed = sl::Mat(cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
-	//Upload to device
+	//std::cout << "zed \n" << std::endl;
 
+	//zed = sl::Mat(cloudRes, sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
+
+	//sl::Mat zed2(cloudRes, sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
+	//std::cout << "done \n" << std::endl;
+
+
+	for(size_t y = 0; y < pcl->height; y++) {
+		for(size_t x = 0; x < pcl->width; x++) {
+			pcl::PointXYZRGB p = pcl->at(x, y);
+
+			// unpack rgb into r/g/b
+			std::uint32_t rgb = *reinterpret_cast<int*>(&p.rgb);
+			//std::uint8_t r = (rgb >> 16) & 0x0000ff;
+			//std::uint8_t g = (rgb >> 8)  & 0x0000ff;
+			//std::uint8_t b = (rgb)       & 0x0000ff;
+
+			//uint32_t 
+			float color = *(float *) &rgb;
+
+			//we will need an RGB Color conversion here
+			zed.setValue(x, y, sl::float4(p.x, p.y, p.z, color));
+			//zed2.setValue(0, 0, sl::float4(p.x, p.y, p.z, 4300));
+			
+			//zed.setValue(x, y, sl::float4(1.0, 1.0, 1.0, 1.0));
+		}
+	}
+
+	//Upload to device
+	zed.updateGPUfromCPU();
 }
 
 shared_ptr<pcl::visualization::PCLVisualizer> createRGBVisualizer(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &pt_cloud_ptr) {
-    // Open 3D pclViewer and add point cloud
+    // Open 3D pclViewer and add point clousl::ERROR_CODE_ 
     shared_ptr<pcl::visualization::PCLVisualizer> pclViewer(
       new pcl::visualization::PCLVisualizer("PCL 3D pclViewer")); //This is a smart pointer so no need to worry ab deleteing it
     pclViewer->setBackgroundColor(0.12, 0.12, 0.12);
@@ -111,6 +152,7 @@ shared_ptr<pcl::visualization::PCLVisualizer> createRGBVisualizer(pcl::PointClou
 
 
 void ransacCPU() {
+	/*
 	pcl::ScopeTime t1("ransac");
 	pcl::SampleConsensusModelPlane<pcl::PointXYZRGB>::Ptr model(new pcl::SampleConsensusModelPlane<pcl::PointXYZRGB> (pc));
 	pcl::RandomSampleConsensus<pcl::PointXYZRGB> ransac (model);
@@ -131,7 +173,7 @@ void ransacCPU() {
         pc->points[inliers[i]].r = 255;
 		pc->points[inliers[i]].g = 0;
         pc->points[inliers[i]].b = 0;
-	}
+	}*/
 
 	//pcl::copyPointCloud (*cloud, inliers, *final);
 
