@@ -29,6 +29,7 @@ extern pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc;
 
 void readData();
 void setPointCloud(int i);
+void pclToZed(sl::Mat &zed, pcl::PointCloud<pcl::PointXYZRGB>::Ptr & pcl);
 
 shared_ptr<pcl::visualization::PCLVisualizer> createRGBVisualizer(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &pt_cloud_ptr);
 
