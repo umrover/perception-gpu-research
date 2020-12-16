@@ -8,8 +8,8 @@
 #include <Eigen/Dense>
 #include <chrono> 
 #include "test-filter-f4.hpp"
-
 #include "pcl.hpp"
+#include<unistd.h>
 
 using namespace std::chrono; 
 
@@ -41,12 +41,13 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //This is a RANSAC model that we will use
-    RansacPlane ransac(sl::float3(0, 1, 0), 10, 400, 100.8, pcSize);
+    //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
+    RansacPlane ransac(sl::float3(0, 1, 0), 10, 400, 100, pcSize);
         
     //PCL integration variables
     int iter = 0;
 	readData(); //Load the pcd file names into pcd_names
-	setPointCloud(0); //Set the first point cloud to be the first of the files
+	setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
 
 
@@ -56,7 +57,7 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        setPointCloud(k);
+        //setPointCloud(k%30);
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
@@ -82,18 +83,24 @@ int main(int argc, char** argv) {
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
         */
-        //draw an actual plane on the viewer where the ground is
-        //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         
         //PCL viewer
         #ifdef USE_PCL
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
+
+        //unsigned int microsecond = 1000000;
+       // usleep(microsecond);
+        viewer.updatePointCloud(pclTest);
+
         #endif
-    
+
+
         //ZED sdk custom viewer
         #ifndef USE_PCL
+        //draw an actual plane on the viewer where the ground is
+        //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
         #endif
     }
