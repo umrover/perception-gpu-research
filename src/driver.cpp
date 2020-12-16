@@ -24,7 +24,6 @@ sl::Camera zed;
 int main(int argc, char** argv) {  
     
     sl::Resolution cloud_res(320/2, 180/2);
-    //sl::Resolution cloud_res_temp(10, 1);
     int k = 0;
     
     //Setup camera and viewer
@@ -42,14 +41,11 @@ int main(int argc, char** argv) {
 
     //This is a RANSAC model that we will use
     RansacPlane ransac(sl::float3(0, 1, 0), 10, 400, 100.8, pcSize);
-    
-
-    auto start = high_resolution_clock::now(); 
-    
-    
+        
+    //PCL integration
     int iter = 0;
 	readData(); //Load the pcd file names into pcd_names
-	setPointCloud(120); //Set the first point cloud to be the first of the files
+	setPointCloud(0); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
     /*
     while(true) {
@@ -62,17 +58,20 @@ int main(int argc, char** argv) {
 
     while(viewer.isAvailable()) {
         //Todo, Timer class. Timer.start(), Timer.record() 
-        //grab the current point cloud
         k++;
 
-       // if(k > 500) setPointCloud(k-500);
-        //else continue;
-        //sl::Mat pclTest(sl::Resolution(320, 180), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
-        //pclToZed(pclTest, pc_pcl);
+        //GRab cloud from file
+        if(k > 200) setPointCloud(k-200);
+        else continue;
+        sl::Mat pclTest(sl::Resolution(320, 180), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
+        pclToZed(pclTest, pc_pcl);
+        GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
+
 
         auto grabStart = high_resolution_clock::now();
 
-        
+        //grab the current point cloud
+        /*
         zed.grab();
         zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
         GPU_Cloud pc = getRawCloud(gpu_cloud);
@@ -80,17 +79,18 @@ int main(int argc, char** argv) {
         auto grabEnd = high_resolution_clock::now();
         auto grabDuration = duration_cast<microseconds>(grabEnd - grabStart); 
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
+        */
         
-        
+        /*
         auto ransacStart = high_resolution_clock::now();
         RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        */
         
         //PCL integration
-        ZedToPcl(pc_pcl, gpu_cloud);
+        ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
         
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
 
         //ZED sdk custom viewer
-        viewer.updatePointCloud(gpu_cloud);
+        //viewer.updatePointCloud(gpu_cloud);
     }
     gpu_cloud.free();
     zed.close(); 
