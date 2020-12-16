@@ -148,12 +148,15 @@ void pclToZed(sl::Mat &zed, pcl::PointCloud<pcl::PointXYZRGB>::Ptr & pcl) {
 
 			// unpack rgb into r/g/b
 			std::uint32_t rgb = *reinterpret_cast<int*>(&p.rgb);
-			//std::uint8_t r = (rgb >> 16) & 0x0000ff;
-			//std::uint8_t g = (rgb >> 8)  & 0x0000ff;
-			//std::uint8_t b = (rgb)       & 0x0000ff;
+			std::uint8_t r = (rgb >> 16) & 0x0000ff;
+			std::uint8_t g = (rgb >> 8)  & 0x0000ff;
+			std::uint8_t b = (rgb)       & 0x0000ff;
+			
+			std::uint32_t bgr = ((std::uint32_t)b << 16 | (std::uint32_t)g << 8 | (std::uint32_t)r);
 
-			//uint32_t 
-			float color = *(float *) &rgb;
+			//float color = *(float *) &rgb;
+			float color = *(float *) &bgr;
+
 
 			//we will need an RGB Color conversion here
 			zed.setValue(x, y, sl::float4(p.x, p.y, p.z, color));
