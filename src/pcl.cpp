@@ -55,6 +55,20 @@ void readData() {
 
 }
 
+
+void DownsampleFilter() {
+
+   pcl::PointCloud<pcl::PointXYZRGB>::Ptr downsampled(new pcl::PointCloud<pcl::PointXYZRGB>(pc->width/2, pc->height/2));
+   for(size_t y = 0; y < pc->height/2; y++) {
+		for(size_t x = 0; x < pc->width/2; x++) {
+			pcl::PointXYZRGB p = pc->at(x*2, y*2);
+			downsampled->at(x, y) = p;
+		}
+   }
+   pc = downsampled;
+
+}
+
 void setPointCloud(int i) {
  	std::string pcd_name = pcd_names[i];
  	std::string full_path = PCD_FOLDER + std::string("/") + pcd_name;
@@ -63,7 +77,10 @@ void setPointCloud(int i) {
     	PCL_ERROR ("Couldn't read file test_pcd.pcd \n"); 
   	}
 	cout << "> Loaded point cloud of " << pc->width << "*" << pc->height << endl;
+	DownsampleFilter();
+	cout << "Post-downsample: " << pc->width << "*" << pc->height << endl;
 }
+
 
 
 //Taken from mrover code, creates a PCL pointcloud from a zed GPU cloud
