@@ -34,7 +34,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl(new pcl::PointCloud<pcl::PointXYZR
 
 auto &pc = pc_pcl;
 
-void readData() {
+void readData() {	
+	map<int, string> fData;
+
 	//Long-winded directory opening (no glob, sad)
 	DIR * pcd_dir;
 	pcd_dir = opendir(PCD_FOLDER);
@@ -46,13 +48,26 @@ void readData() {
       		std::string file_name(dp->d_name);
       		std::cout<<"file_name is "<<file_name<<std::endl;
       		// the lengh of the tail str is at least 4
-      		if (file_name.size() < 5) continue;
+      		if (file_name.size() < 5) continue; //make it 5 to get the single digit
       		pcd_names.push_back(file_name);
+			
+			int s = file_name.find_first_of("0123456789");
+			int l = file_name.find(".");
+			string keyS = file_name.substr(s,l-s );
+			int key = stoi(keyS);
+			//cout << key << endl;
+			fData[key] = file_name;
       
     	}
  	} while (dp != NULL);
 	std::sort(pcd_names.begin(), pcd_names.end());
 
+	pcd_names.clear();
+	for(auto i : fData) {
+		pcd_names.push_back(i.second);
+		cout << i.second << endl;
+	}
+	
 }
 
 
