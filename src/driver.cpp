@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
-    RansacPlane ransac(sl::float3(0, 1, 0), 7, 1000, 80, pcSize);
+    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 80, pcSize);
         
     //PCL integration variables
     int iter = 0;

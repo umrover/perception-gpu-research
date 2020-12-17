@@ -87,7 +87,7 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     int randIdx2 = modelPoints[iteration*3 + 2];
     sl::float3 modelPt0(pc.data[randIdx0]);
     sl::float3 modelPt1(pc.data[randIdx1]);
-    sl::float3 modelPt2(pc.data[randIdx2]);
+    sl::float3 modelPt2(pc.data[randIdx2]);    
 
     // get the two vectors on the plane defined by the model points
     sl::float3 v1 (modelPt1 - modelPt0);
@@ -110,10 +110,11 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     for(int i = 0; i < pointsPerThread; i++) {
         // select a point index or return if this isn't a valid point
         int pointIdx = threadIdx.x * pointsPerThread + i;
-        if(pointIdx >= pc.size) return; 
+        if(pointIdx >= pc.size) continue; //TODO Should this be return??? 
         
         // point in the point cloud that could be an inlier or outlier
         sl::float3 curPt(pc.data[pointIdx]);
+        if(curPt.x == 0 && curPt.y == 0 && curPt.z == 0) continue; //TEMPORARY (0,0,0 removal) until passthru
         
         //calculate distance of cur pt to the plane formed by the 3 model points [see doc for the complete derrivation]
         sl::float3 d_to_model_pt = (curPt - modelPt1);
@@ -199,13 +200,16 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
     //at the final thread, write to global memory
     if(threadIdx.x < 3) {
         //printf("--> model with most inliers is model: %d \n", modelIndiciesLocal[0]);
+       // pc.data[ modelPoints[modelIndiciesLocal[0]*3 + threadIdx.x]].w =  9.14767637511e-41;//; //debug featre color model pt
+
         sl::float3 pt = pc.data[ modelPoints[modelIndiciesLocal[0]*3 + threadIdx.x] ];
+
         optimalModelOut[threadIdx.x*3] = pt.x; 
         optimalModelOut[threadIdx.x*3 + 1] = pt.y; 
         optimalModelOut[threadIdx.x*3 + 2] = pt.z; 
     } 
     if(threadIdx.x == 0) {
-        printf("winner model inliers: %f \n", inlierCountsLocal[0]);
+        //printf("winner model inliers: %f \n", inlierCountsLocal[0]);
         //check here if the inlier counts local is 0, if so return -1 instead
         if(inlierCountsLocal[0] > 1.0) {
             *optimalModelIndex = modelIndiciesLocal[0];
@@ -218,6 +222,8 @@ __global__ void selectOptimalRansacModel(GPU_Cloud_F4 pc, float* inlierCounts, i
 
 __global__ void computeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* modelPoints, float threshold, sl::float3 axis) {
     if(*optimalModelIndex < 0) return;
+
+
     sl::float3 modelPt0 (pc.data[modelPoints[*optimalModelIndex*3]]);
     sl::float3 modelPt1 (pc.data[modelPoints[*optimalModelIndex*3 + 1]]);
     sl::float3 modelPt2 (pc.data[modelPoints[*optimalModelIndex*3 + 2]]);
@@ -258,11 +264,34 @@ __global__ void computeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* mo
         int flag = (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
         //int flag = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
         
-        if(flag != 0) {
+        if(flag != 0) { //colors are ABGR in float space(LOL?????)
             pc.data[pointIdx].w = 100;
+        } else {
+            uint32_t* color_uint = (uint32_t *) & pc.data[pointIdx].w;
+            unsigned char* abgr = (unsigned char*) color_uint;
+           // abgr[0] =  abgr[0]/2;
+            //abgr[1] =  abgr[1]/2;
+            //abgr[2] = abgr[2]/2;
+            //abgr[3] = abgr[3];
+            
         }
 
         
+    }
+
+    //*debug color model points 3.57331108403e-43; // (red)
+    __syncthreads();
+    if(threadIdx.x == 0) {
+        pc.data[modelPoints[*optimalModelIndex*3]].w = 3.57331108403e-43;
+        pc.data[modelPoints[*optimalModelIndex*3 + 1]].w = 3.57331108403e-43;
+        pc.data[modelPoints[*optimalModelIndex*3 + 2]].w = 3.57331108403e-43;
+
+        //printf("optimal idx: %d %d %d \n",  modelPoints[*optimalModelIndex*3],  modelPoints[*optimalModelIndex*3+1], modelPoints[*optimalModelIndex*3+2]);
+    //    printf("> pt0: %f %f %f \n", modelPt0.x, modelPt0.y, modelPt0.z );
+   //     printf("> pt1: %f %f %f \n", modelPt1.x, modelPt1.y, modelPt1.z );
+     //   printf("> pt2: %f %f %f \n", modelPt2.x, modelPt2.y, modelPt2.z );
+
+
     }
 }
 
