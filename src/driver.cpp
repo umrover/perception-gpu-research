@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
-    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 80, pcSize);
+    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
         
     //PCL integration variables
     int iter = 0;
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        //setPointCloud(k%30);
+        setPointCloud(k);
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
