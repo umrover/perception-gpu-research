@@ -10,6 +10,7 @@
 #include "test-filter-f4.hpp"
 #include "pcl.hpp"
 #include<unistd.h>
+#include <thread>
 
 using namespace std::chrono; 
 
@@ -18,9 +19,16 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
+//Zed camera and viewer
 sl::Camera zed;
+GLViewer viewer;
+
+//This is a thread to just spin the zed viewer
+void spinZedViewer() {
+    while(viewer.isAvailable()) {}
+}
 
 int main(int argc, char** argv) {  
     
@@ -31,7 +39,7 @@ int main(int argc, char** argv) {
     sl::InitParameters init_params;
     init_params.coordinate_units = sl::UNIT::MILLIMETER;
     zed.open(init_params); 
-    GLViewer viewer;
+    // init viewer
     auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
     GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
 
@@ -50,8 +58,9 @@ int main(int argc, char** argv) {
 	setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
 
+    thread zedViewerThread(spinZedViewer);
 
-    while(viewer.isAvailable()) {
+    while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
 
@@ -90,8 +99,8 @@ int main(int argc, char** argv) {
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
 
-        //unsigned int microsecond = 1000000;
-       // usleep(microsecond);
+        unsigned int microsecond = 1000000;
+        usleep(microsecond);
         viewer.updatePointCloud(pclTest);
 
         #endif
