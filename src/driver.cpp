@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
-    RansacPlane ransac(sl::float3(0, 1, 0), 10, 400, 100, pcSize);
+    RansacPlane ransac(sl::float3(0, 1, 0), 7, 1000, 80, pcSize);
         
     //PCL integration variables
     int iter = 0;
@@ -76,13 +76,13 @@ int main(int argc, char** argv) {
         #endif
         
         //Perform RANSAC Plane segmentation to find the ground
-        /*
+        
         auto ransacStart = high_resolution_clock::now();
         RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        */
+        
         
         //PCL viewer
         #ifdef USE_PCL
