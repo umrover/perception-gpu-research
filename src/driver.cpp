@@ -32,7 +32,7 @@ void spinZedViewer() {
 }
 
 int main(int argc, char** argv) {  
-    /*
+    
     //Create a point synthetic point cloud
     int testcloudsize = 10;
     GPU_Cloud_F4 testcloud;
@@ -51,9 +51,10 @@ int main(int argc, char** argv) {
         sl::float4(4, -4, 2,4545),
     };
     cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
-    */
-    sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
+    /*
+    sl::Resolution cloud_res(320/2, 180/2);
+    
     
     //Setup camera and viewer
     sl::InitParameters init_params;
@@ -68,9 +69,9 @@ int main(int argc, char** argv) {
     sl::Mat gpu_cloud (cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
     int pcSize = cloud_res.area(); 
     cout << "Point clouds are of size: " << pcSize << endl;
-    
+    */
     //PassThrough filter that filters out all z values <0.2 and >7
-    PassThrough passZ('z', 200.0, 7000.0);
+    PassThrough passZ('z', 0.2, 7);
 
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
@@ -87,7 +88,7 @@ int main(int argc, char** argv) {
     */
     thread zedViewerThread(spinZedViewer);
     
-    while(true) {
+    while(k < 1) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
 
@@ -99,7 +100,7 @@ int main(int argc, char** argv) {
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
         #endif
 
-        //Grab cloud from the Zed camera
+        /*Grab cloud from the Zed camera
         #ifndef USE_PCL
         auto grabStart = high_resolution_clock::now();
         zed.grab();
@@ -110,10 +111,10 @@ int main(int argc, char** argv) {
         auto grabDuration = duration_cast<microseconds>(grabEnd - grabStart); 
         cerr << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         #endif
-        
+        */
         //Pass Through Filter
         auto passThroughStart = high_resolution_clock::now();
-        passZ.run(pc_f4);
+        passZ.run(testcloud);
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart);
         cerr << "pass through time: " << (passThroughDuration.count()/1.0e3) << " ms\n";
@@ -125,7 +126,7 @@ int main(int argc, char** argv) {
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cerr << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        */
+        
         
         //PCL viewer
         #ifdef USE_PCL
@@ -146,8 +147,9 @@ int main(int argc, char** argv) {
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
         #endif
+        */
     }
-    gpu_cloud.free();
-    zed.close(); 
+    //gpu_cloud.free();
+    //zed.close(); 
     return 1;
 }
