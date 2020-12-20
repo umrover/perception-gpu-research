@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
     	pclViewer->spinOnce(10);
 
         unsigned int microsecond = 1000000;
-        usleep(microsecond);
+       // usleep(microsecond);
         viewer.updatePointCloud(pclTest);
 
         #endif
