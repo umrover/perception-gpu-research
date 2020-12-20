@@ -1,5 +1,5 @@
 #pragma once
-#include <sl/Camera.hpp>
+
 #include "common.hpp"
 
 
@@ -11,10 +11,10 @@ class PassThrough {
     public:
 
     //Constructor takes in axis, min, max
-    PassThrough(sl::Mat gpu_cloud, char axis, float min, float max);
+    PassThrough(char axis, float min, float max);
 
     //Main processing function
-    void run();
+    void run(GPU_Cloud_F4 cloud);
 
     private:
 
@@ -22,10 +22,8 @@ class PassThrough {
     float max;
 
     //0=X 1=Y 2=Z
-    int *axis;
+    int axis;
 
-    GPU_Cloud gpu_cloud;
-
-}
+};
 
 #endif

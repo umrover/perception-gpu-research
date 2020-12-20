@@ -11,6 +11,7 @@
 #include "pcl.hpp"
 #include<unistd.h>
 #include <thread>
+#include "pass-through.hpp"
 
 using namespace std::chrono; 
 
@@ -19,7 +20,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -31,7 +32,26 @@ void spinZedViewer() {
 }
 
 int main(int argc, char** argv) {  
-    
+    /*
+    //Create a point synthetic point cloud
+    int testcloudsize = 10;
+    GPU_Cloud_F4 testcloud;
+    cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
+    testcloud.size = testcloudsize;
+    sl::float4 dataCPU[testcloudsize] = {
+        sl::float4(0.1, 0, 0, 4545), 
+        sl::float4(10, 0, 0, 4545),
+        sl::float4(-10, 0, 0.4, 4545),
+        sl::float4(0, 0, 10, 4545),
+        sl::float4(10, 0, 10, 4545),
+        sl::float4(-10, 0, 10,4545),
+        sl::float4(-5, 3, 10,4545),
+        sl::float4(5, 2, 5,4545),
+        sl::float4(2, 5, 2,4545),
+        sl::float4(4, -4, 2,4545),
+    };
+    cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
+    */
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
     
@@ -44,22 +64,29 @@ int main(int argc, char** argv) {
     GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
 
     //This is a cloud with data stored in GPU memory that can be acessed from CUDA kernels
+    
     sl::Mat gpu_cloud (cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
     int pcSize = cloud_res.area(); 
     cout << "Point clouds are of size: " << pcSize << endl;
+    
+    //PassThrough filter that filters out all z values <0.2 and >7
+    PassThrough passZ('z', 200.0, 7000.0);
 
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
-    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
-        
+    //RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
+    /*
     //PCL integration variables
     int iter = 0;
-	readData(); //Load the pcd file names into pcd_names
-	setPointCloud(5); //Set the first point cloud to be the first of the files
+
+    #ifdef USE_PCL
+    readData(); //Load the pcd file names into pcd_names
+    setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
-
+    #endif
+    */
     thread zedViewerThread(spinZedViewer);
-
+    
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
@@ -81,17 +108,24 @@ int main(int argc, char** argv) {
         GPU_Cloud_F4 pc_f4 = getRawCloud(gpu_cloud, true);
         auto grabEnd = high_resolution_clock::now();
         auto grabDuration = duration_cast<microseconds>(grabEnd - grabStart); 
-        cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
+        cerr << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         #endif
         
+        //Pass Through Filter
+        auto passThroughStart = high_resolution_clock::now();
+        passZ.run(pc_f4);
+        auto passThroughStop = high_resolution_clock::now();
+        auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart);
+        cerr << "pass through time: " << (passThroughDuration.count()/1.0e3) << " ms\n";
+
+/*
         //Perform RANSAC Plane segmentation to find the ground
-        
         auto ransacStart = high_resolution_clock::now();
         RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
-        cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        cerr << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
+        */
         
         //PCL viewer
         #ifdef USE_PCL
