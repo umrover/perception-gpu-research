@@ -66,7 +66,6 @@ void PassThrough::run(GPU_Cloud_F4 &cloud){
 
     //Copy from host to device
     cudaMemcpy(d_newSize, h_newSize, sizeof(int), cudaMemcpyHostToDevice);
-    checkStatus(cudaGetLastError());
     
     //Run PassThrough Kernel
     passThroughKernel<<<ceilDiv(cloud.size, BLOCK_SIZE), BLOCK_SIZE>>>(cloud, axis, min, max, d_newSize);
@@ -75,12 +74,9 @@ void PassThrough::run(GPU_Cloud_F4 &cloud){
     
     //Copy from device to host
     cudaMemcpy(h_newSize, d_newSize, sizeof(int), cudaMemcpyDeviceToHost);
-    checkStatus(cudaGetLastError());
     
     //Update size of cloud
     cloud.size = *h_newSize;
-    //cloud.data[*d_newSize] = nullptr;
-    checkStatus(cudaGetLastError());
     std::cerr << "New Cloud Size: " << cloud.size << "\n";
 
     //Free dynamically allocated memory

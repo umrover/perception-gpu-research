@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
     //Pass Through Filter
     PassThrough passZ('z', 200.0, 7000.0);
     PassThrough passY('y', 100.0, 600.0);
+    
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
     RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
