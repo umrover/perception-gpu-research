@@ -1,10 +1,6 @@
 #pragma once
 
-#include <Eigen/Dense>
 #include "common.hpp"
-
-using namespace Eigen;
-
 
 class RansacPlane {
     public:

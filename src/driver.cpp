@@ -85,7 +85,6 @@ int main(int argc, char** argv) {
         #endif
         
         //Perform RANSAC Plane segmentation to find the ground
-        
         auto ransacStart = high_resolution_clock::now();
         RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
@@ -93,20 +92,18 @@ int main(int argc, char** argv) {
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
         
         
-        //PCL viewer
+        //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
-
         unsigned int microsecond = 1000000;
        // usleep(microsecond);
         viewer.updatePointCloud(pclTest);
-
         #endif
 
 
-        //ZED sdk custom viewer
+        //ZED sdk custom viewer ONLY
         #ifndef USE_PCL
         //draw an actual plane on the viewer where the ground is
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
