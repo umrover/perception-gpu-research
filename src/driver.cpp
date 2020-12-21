@@ -11,6 +11,7 @@
 #include "pcl.hpp"
 #include<unistd.h>
 #include <thread>
+#include "pass-through.hpp"
 
 using namespace std::chrono; 
 
@@ -19,7 +20,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -48,17 +49,22 @@ int main(int argc, char** argv) {
     int pcSize = cloud_res.area(); 
     cout << "Point clouds are of size: " << pcSize << endl;
 
+    //Pass Through Filter
+    PassThrough passZ('z', 200.0, 7000.0);
+
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
     RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
         
     //PCL integration variables
+    #ifdef USE_PCL
     int iter = 0;
 	readData(); //Load the pcd file names into pcd_names
 	setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
+    #endif
 
-    thread zedViewerThread(spinZedViewer);
+    //thread zedViewerThread(spinZedViewer);
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -84,10 +90,16 @@ int main(int argc, char** argv) {
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         #endif
         
+        //Run PassThrough Filter
+        auto passThroughStart = high_resolution_clock::now();
+        //passZ.run(pc_f4);
+        auto passThroughStop = high_resolution_clock::now();
+        auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
+        cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
+
         //Perform RANSAC Plane segmentation to find the ground
-        
         auto ransacStart = high_resolution_clock::now();
-        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
+        //RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
@@ -102,7 +114,6 @@ int main(int argc, char** argv) {
         unsigned int microsecond = 1000000;
        // usleep(microsecond);
         viewer.updatePointCloud(pclTest);
-
         #endif
 
 
@@ -112,6 +123,8 @@ int main(int argc, char** argv) {
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
         #endif
+
+        cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
     }
     gpu_cloud.free();
     zed.close(); 
