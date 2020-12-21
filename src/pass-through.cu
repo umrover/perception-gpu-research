@@ -20,15 +20,24 @@ __global__ void passThroughKernel(GPU_Cloud_F4 cloud, int axis, float min, float
 
     //Find index for current operation
     int idx = threadIdx.x + blockIdx.x * BLOCK_SIZE;
-    if(idx >= cloud.size) return;
-    //printf("index X z value = %f", cloud.data[idx].z);
+
+    if(idx > cloud.size)
+        return;
+
     //If out of range make blue and return
-    if(cloud.data[idx].z > max || cloud.data[idx].z < min ||
-        isnan(cloud.data[idx].z) || isinf(cloud.data[idx].z)){
+    if(     (axis == 0 && (cloud.data[idx].x > max || cloud.data[idx].x < min ||
+            isnan(cloud.data[idx].x) || isinf(cloud.data[idx].x)))
+
+        ||  (axis == 1 && (cloud.data[idx].y > max || cloud.data[idx].y < min ||
+            isnan(cloud.data[idx].y) || isinf(cloud.data[idx].y)))
+
+        || (axis == 2 && (cloud.data[idx].z > max || cloud.data[idx].z < min ||
+            isnan(cloud.data[idx].z) || isinf(cloud.data[idx].z)))
+    ) {
         cloud.data[idx].w = 4353.0;
         return;
     }
-    
+       
     //If still going then update point cloud float array
     sl::float4 copy = cloud.data[idx];
 
@@ -37,13 +46,13 @@ __global__ void passThroughKernel(GPU_Cloud_F4 cloud, int axis, float min, float
 
     //Count the new size
     int place = atomicAdd(size, 1);
-    //printf("Atomic added\n");
+
     //Copy back data into place in front of array
     cloud.data[place] = copy;
 
 }
 
-void PassThrough::run(GPU_Cloud_F4 cloud){
+void PassThrough::run(GPU_Cloud_F4 &cloud){
 
     std::cerr << "Original size: " << cloud.size << "\n";
     

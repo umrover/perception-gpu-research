@@ -14,7 +14,7 @@ class PassThrough {
     PassThrough(char axis, float min, float max);
 
     //Main processing function
-    void run(GPU_Cloud_F4);
+    void run(GPU_Cloud_F4 &);
 
     private:
 

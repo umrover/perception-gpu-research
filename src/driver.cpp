@@ -33,7 +33,7 @@ void spinZedViewer() {
 
 int main(int argc, char** argv) {  
     
-    sl::Resolution cloud_res(320/2, 180/2);
+    sl::Resolution cloud_res(320, 180);
     int k = 0;
     
     //Setup camera and viewer
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 
     //Pass Through Filter
     PassThrough passZ('z', 200.0, 7000.0);
-
+    PassThrough passY('y', 100.0, 600.0);
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
     RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
@@ -92,14 +92,15 @@ int main(int argc, char** argv) {
         
         //Run PassThrough Filter
         auto passThroughStart = high_resolution_clock::now();
-        //passZ.run(pc_f4);
+        passZ.run(pc_f4);
+        passY.run(pc_f4);
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
         cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
 
         //Perform RANSAC Plane segmentation to find the ground
         auto ransacStart = high_resolution_clock::now();
-        //RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
+        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
