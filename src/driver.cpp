@@ -33,7 +33,7 @@ void spinZedViewer() {
 
 int main(int argc, char** argv) {  
     
-    sl::Resolution cloud_res(320, 180);
+    sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
     
     //Setup camera and viewer
@@ -50,22 +50,23 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //Pass Through Filter
-    PassThrough passZ('z', 200.0, 7000.0);
-    PassThrough passY('y', 100.0, 600.0);
+    PassThrough passZ('z', 200.0, 7000.0); //This probly won't do much since range so large
+    PassThrough passY('y', 100.0, 600.0); 
     
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
     RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
         
     //PCL integration variables
-    #ifdef USE_PCL
     int iter = 0;
 	readData(); //Load the pcd file names into pcd_names
 	setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
-    #endif
 
-    //thread zedViewerThread(spinZedViewer);
+    #ifdef USE_PCL
+    //slows down performance of all GPU functions since running in parallel with them
+    thread zedViewerThread(spinZedViewer);
+    #endif
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -106,7 +107,10 @@ int main(int argc, char** argv) {
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
         
-        
+        #ifndef USE_PCL
+        viewer.isAvailable();
+        #endif
+
         //PCL viewer
         #ifdef USE_PCL
         ZedToPcl(pc_pcl, pclTest);
