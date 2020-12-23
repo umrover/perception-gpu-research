@@ -32,6 +32,24 @@ void spinZedViewer() {
 
 int main(int argc, char** argv) {  
     
+    //Create a point synthetic point cloud
+    int testcloudsize = 10;
+    GPU_Cloud_F4 testcloud;
+    cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
+    testcloud.size = testcloudsize;
+    sl::float4 dataCPU[testcloudsize] = {
+        sl::float4(0.1, 0, 0, 4545), 
+        sl::float4(10, 0, 0, 4545),
+        sl::float4(-10, 0, 0.4, 4545),
+        sl::float4(0, 0, 10, 4545),
+        sl::float4(10, 0, 10, 4545),
+        sl::float4(-10, 0, 10,4545),
+        sl::float4(-5, 3, 10,4545),
+        sl::float4(5, 2, 5,4545),
+        sl::float4(2, 5, 2,4545),
+        sl::float4(4, -4, 2,4545),
+    };
+    cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
     

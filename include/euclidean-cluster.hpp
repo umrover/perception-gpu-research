@@ -31,6 +31,8 @@ class EuclideanClusterExtractor {
         */
         void extractClusters(GPU_Cloud_F4 pc);
 
+        void findBoundingBox(GPU_CLOUD_F4 pc);
+
     private:
         //user given model parms
         GPU_Cloud_F4 pc;
