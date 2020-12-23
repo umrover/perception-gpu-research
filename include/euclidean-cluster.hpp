@@ -38,5 +38,11 @@ class EuclideanClusterExtractor {
         float minSize;
         float maxSize;
         
-
+        //internal information
+        int* neighborLists; //lists of neighbors for each point inline
+        int* listStart; //starting indexes of adjacency lists for each pt (size of max pt cloud)
+        int * labels; //labels for each point (size of max pt cloud)
+        bool* f1; //frontier array 1 (size of max pt cloud)
+        bool* f2; //frontier array 2 (size of max pt cloud)
+        bool* stillGoing;
 };
