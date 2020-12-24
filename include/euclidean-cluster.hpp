@@ -21,7 +21,7 @@ class EuclideanClusterExtractor {
         EFFECTS:
         - Computes clusters on point cloud based on Euclidean distances 
         */
-        EuclideanClusterExtractor(float tolerance, int minSize, float maxSize);
+        EuclideanClusterExtractor(float tolerance, int minSize, float maxSize, GPU_Cloud_F4 pc);
 
         ~EuclideanClusterExtractor();
 

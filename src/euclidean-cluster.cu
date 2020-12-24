@@ -1,6 +1,7 @@
 #include "euclidean-cluster.hpp"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
+#include "common.hpp"
 
 /*
 This kernel determines the structure of the graph but does not build it
@@ -10,14 +11,14 @@ point can have the entire dataset amount of neighbors. Perhaps we can
 explore this allocation method instead.
 */
 //b: enough, t: each point
-__global__ determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* listStart) {
+__global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* listStart) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     sl::float3 pt = pc.data[ptIdx];
     int neighborCount = 0;
     
     //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
     for(int i = 0; i < pc.size; i++) {
-        sl::float3 dvec = (pt - pc.data[i]);
+        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
         //this is a neighbor
         if( dvec.norm() < tolerance) {
             neighborCount++;
@@ -32,16 +33,16 @@ __global__ determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* 
 /* This kernel builds the graph 
 Fairly standard adjacency list structure. 
 */
-__global__ buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2) {
+__global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     sl::float3 pt = pc.data[ptIdx];
     int neighborCount = 0;
     //get the adjacency list for this point
-    float* list = neighborLists + listStart[ptIdx]
+    int* list = neighborLists + listStart[ptIdx];
     
     //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
     for(int i = 0; i < pc.size; i++) {
-        sl::float3 dvec = (pt - pc.data[i]);
+        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
         //this is a neighbor
         if( dvec.norm() < tolerance) {
             list[neighborCount] = i;
@@ -59,12 +60,12 @@ this kernel propogates labels, it must be called in a loop until its flag "m" is
 no more changes are pending. 
 */
 //each thread is a point 
-__global__ propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, bool* m) {
+__global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, bool* m) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     bool mod = false;
     //TODO, load the NEIGHBOR list to shared memory 
     if(f1[ptIdx]) {
-        float* list = neighborLists + listStart[ptIdx]
+        int* list = neighborLists + listStart[ptIdx];
         int listLen = listStart[ptIdx+1] - listStart[ptIdx];
         f1[ptIdx] = false;
         int myLabel = labels[ptIdx];
@@ -80,19 +81,22 @@ __global__ propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listStart, 
                 mod = true;
             }
         }
+
+        if(mod) {
+            atomicMin(&labels[ptIdx], myLabel);
+            f2[ptIdx] = true;
+            *m = true;
+        }
     } 
 
-    if(mod) {
-        atomicMin(&labels[ptIdx], myLabel);
-        f2[ptIdx] = true;
-        *m = true
-    }
+
 }
 
 //this debug kernel colors points based on their label
-__global__ colorClusters(GPU_Cloud_F4 pc, int* labels) {
+__global__ void colorClusters(GPU_Cloud_F4 pc, int* labels) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
-    //if(ptIdx == )
+    if(ptIdx >= pc.size) return;
+    printf("dat %d: %f, %f, %f \n", ptIdx,  pc.data[ptIdx].x, pc.data[ptIdx].y,  pc.data[ptIdx].z );
 }
 
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize, GPU_Cloud_F4 pc) 
@@ -103,24 +107,26 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
     cudaMalloc(&f1, sizeof(bool)*pc.size);
     cudaMalloc(&f2, sizeof(bool)*pc.size);
     cudaMalloc(&stillGoing, sizeof(bool));
+
+    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, nullptr);
 }
 
 //perhaps use dynamic parallelism 
-EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
+void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //set frontier arrays appropriately [done in build graph]
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
     determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart);
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
-    checkStatus(cudaDeviceSynchronize())
+    checkStatus(cudaDeviceSynchronize());
     thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
     int* totalAdjanecyListsSize;
-    checkStatus(cudaMemcpy(&totalAdjanecyListsSize, listStart[pc.size-1], cudaMemcpyDeviceToHost));
+    checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size-1], sizeof(int), cudaMemcpyDeviceToHost));
     
     bool stillGoingCPU = true;    
     while(stillGoingCPU) {
     
-        propogateLabels<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(GPU_Cloud_F4 pc, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, bool* m) 
+        propogateLabels<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, neighborLists, listStart, labels, f1, f2, stillGoing);
 
         //swap the frontiers
         bool* t = f1;
@@ -129,4 +135,8 @@ EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
         //get flag to see if we are done
         cudaMemcpy(&stillGoingCPU, stillGoing, sizeof(bool), cudaMemcpyDeviceToHost);
     }
+}
+
+EuclideanClusterExtractor::~EuclideanClusterExtractor() {
+    
 }

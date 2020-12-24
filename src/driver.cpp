@@ -11,6 +11,7 @@
 #include "pcl.hpp"
 #include<unistd.h>
 #include <thread>
+#include "euclidean-cluster.hpp"
 
 using namespace std::chrono; 
 
@@ -19,7 +20,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -58,9 +59,35 @@ int main(int argc, char** argv) {
 	setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
 
-    thread zedViewerThread(spinZedViewer);
+    //thread zedViewerThread(spinZedViewer);
 
-    while(true) {
+
+    //Temporary DEBUG model:
+    int testcloudsize = 10;
+    GPU_Cloud_F4 testcloud;
+    //cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
+    //testcloud.size = testcloudsize;
+    sl::float4 dataCPU[testcloudsize] = {
+        sl::float4(0.1, 0, 0, 4545), 
+        sl::float4(10, 0, 0, 4545),
+        sl::float4(-10, 0, 0.4, 4545),
+        sl::float4(0, 0, 10, 4545),
+        sl::float4(10, 0, 10, 4545),
+        sl::float4(-10, 0, 10,4545),
+        sl::float4(-5, 3, 10,4545),
+        sl::float4(5, 2, 5,4545),
+        sl::float4(2, 5, 2,4545),
+        sl::float4(4, -4, 2,4545),
+    };
+    sl::Mat testcloudmat(cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
+    for(int i = 0; i < testcloudsize; i++) testcloudmat.setValue(i, 0, dataCPU[i], sl::MEM::GPU);
+    //cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
+    testcloud = getRawCloud(testcloudmat, true);
+    testcloud.size = testcloudsize;
+    EuclideanClusterExtractor ece(1, 0, 0, testcloud);
+    //ece.extractClusters(testcloud);
+
+    while(viewer.isAvailable()) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
 
@@ -73,7 +100,9 @@ int main(int argc, char** argv) {
         #endif
 
         //Grab cloud from the Zed camera
+        /*
         #ifndef USE_PCL
+        
         auto grabStart = high_resolution_clock::now();
         zed.grab();
         zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
@@ -90,7 +119,10 @@ int main(int argc, char** argv) {
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        */
+
+       // auto eceStart = high_resolution_clock::now();
+
         
         //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
@@ -107,7 +139,9 @@ int main(int argc, char** argv) {
         #ifndef USE_PCL
         //draw an actual plane on the viewer where the ground is
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
-        viewer.updatePointCloud(gpu_cloud);
+        //viewer.updatePointCloud(gpu_cloud);
+        viewer.updatePointCloud(testcloudmat);
+
         #endif
     }
     gpu_cloud.free();
