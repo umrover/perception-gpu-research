@@ -68,6 +68,9 @@ no more changes are pending.
 //each thread is a point 
 __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, bool* m) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+    printf("pt idx: %d, label: %d \n", ptIdx, labels[ptIdx]);
+
     bool mod = false;
     //TODO, load the NEIGHBOR list to shared memory 
     if(f1[ptIdx]) {
@@ -76,9 +79,13 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
         f1[ptIdx] = false;
         int myLabel = labels[ptIdx];
 
+        //printf("[len] pt idx: %d, list-len: %d \n", ptIdx, listLen);
+
         for(int i = 0; i < listLen; i++) {
             int otherLabel = labels[list[i]];
             if(myLabel < otherLabel) { //are these reads actually safe?
+                //printf("-- updating other: %d to be %d \n", otherLabel, myLabel);
+
                 atomicMin(&labels[list[i]], myLabel);
                 f2[list[i]] = true;
                 *m = true;
@@ -96,6 +103,11 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
     } 
 
 
+    __syncthreads();
+    if(threadIdx.x == 0) {
+    if(*m) printf("still going \n");
+    else printf("done \n");
+    }
 }
 
 //this debug kernel colors points based on their label
@@ -140,13 +152,17 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
     for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
     
+    for(int i = 0; i < 3; i++) {
+    propogateLabels<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, neighborLists, listStart, labels, f1, f2, stillGoing);
+    bool* t = f1;
+    f1 = f2;
+    f2 = t;
+    }
+
     /*
-    int* totalAdjanecyListsSize;
-    checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size-1], sizeof(int), cudaMemcpyDeviceToHost));
-    
     bool stillGoingCPU = true;    
     while(stillGoingCPU) {
-    
+        checkStatus(cudaMemsetAsync(stillGoing, 0, 1));
         propogateLabels<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, neighborLists, listStart, labels, f1, f2, stillGoing);
 
         //swap the frontiers
