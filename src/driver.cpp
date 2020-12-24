@@ -63,6 +63,7 @@ int main(int argc, char** argv) {
 
 
     //Temporary DEBUG model:
+    /*
     int testcloudsize = 8;
     GPU_Cloud_F4 testcloud;
     //cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
@@ -83,7 +84,11 @@ int main(int argc, char** argv) {
     testcloud = getRawCloud(testcloudmat, true);
     testcloud.size = testcloudsize;
     EuclideanClusterExtractor ece(110, 0, 0, testcloud);
-    ece.extractClusters(testcloud);
+    ece.extractClusters(testcloud);*/
+    GPU_Cloud_F4 tmp;
+    tmp.size = cloud_res.width*cloud_res.height;
+    EuclideanClusterExtractor ece(110, 0, 0, tmp);
+    //ece.extractClusters(testcloud);
 
     while(viewer.isAvailable()) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -98,7 +103,7 @@ int main(int argc, char** argv) {
         #endif
 
         //Grab cloud from the Zed camera
-        /*
+        
         #ifndef USE_PCL
         
         auto grabStart = high_resolution_clock::now();
@@ -111,6 +116,7 @@ int main(int argc, char** argv) {
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         #endif
         
+        /*
         //Perform RANSAC Plane segmentation to find the ground
         auto ransacStart = high_resolution_clock::now();
         RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
@@ -119,8 +125,11 @@ int main(int argc, char** argv) {
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
         */
 
-       // auto eceStart = high_resolution_clock::now();
-
+        auto eceStart = high_resolution_clock::now();
+        ece.extractClusters(pc_f4);
+        auto eceStop = high_resolution_clock::now();
+        auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
+        cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
         
         //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
@@ -137,8 +146,8 @@ int main(int argc, char** argv) {
         #ifndef USE_PCL
         //draw an actual plane on the viewer where the ground is
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
-        //viewer.updatePointCloud(gpu_cloud);
-        viewer.updatePointCloud(testcloudmat);
+        viewer.updatePointCloud(gpu_cloud);
+       // viewer.updatePointCloud(testcloudmat);
 
         #endif
     }

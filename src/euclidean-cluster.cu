@@ -29,7 +29,7 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     listStart[ptIdx] = neighborCount;
 
     //we must do an exclusive scan using thrust after this kernel
-    printf("%d: %d \n",ptIdx, neighborCount );
+    //printf("%d: %d \n",ptIdx, neighborCount );
 }
 
 
@@ -150,7 +150,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     checkStatus(cudaMemcpy(temp, listStart, sizeof(int)*(pc.size+1), cudaMemcpyDeviceToHost));
     for(int i = 0; i < pc.size+1; i++) std::cout << "ex scan: " << temp[i] << std::endl; */
     checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size], sizeof(int), cudaMemcpyDeviceToHost));
-    std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
+    //std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
     
     cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
@@ -158,7 +158,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
 
     int* temp2 = (int*) malloc(sizeof(int)*(totalAdjanecyListsSize));
     checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
-    for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
+    //for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
     
     /*
     for(int i = 0; i < 4; i++) {
