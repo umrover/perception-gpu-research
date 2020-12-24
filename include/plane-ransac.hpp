@@ -30,6 +30,8 @@ class RansacPlane {
         - Computes the RANSAC model on the GPU and returns the coefficients 
         */
         Plane computeModel(GPU_Cloud_F4 pc);
+        //non debug kernel
+        Plane computeModel(GPU_Cloud_F4 pc, bool flag);
 
 
         /*

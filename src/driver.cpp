@@ -20,7 +20,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-//#define USE_PCL
+#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
 	setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
 
-    //thread zedViewerThread(spinZedViewer);
+    thread zedViewerThread(spinZedViewer);
 
 
     //Temporary DEBUG model:
@@ -85,12 +85,12 @@ int main(int argc, char** argv) {
     testcloud.size = testcloudsize;
     EuclideanClusterExtractor ece(110, 0, 0, testcloud);
     ece.extractClusters(testcloud);*/
+
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
     EuclideanClusterExtractor ece(110, 0, 0, tmp);
-    //ece.extractClusters(testcloud);
 
-    while(viewer.isAvailable()) {
+    while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
 
@@ -116,21 +116,23 @@ int main(int argc, char** argv) {
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         #endif
         
-        /*
+        
         //Perform RANSAC Plane segmentation to find the ground
         auto ransacStart = high_resolution_clock::now();
-        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
+        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4, true);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        */
+        
 
+        /*
         auto eceStart = high_resolution_clock::now();
         ece.extractClusters(pc_f4);
         auto eceStop = high_resolution_clock::now();
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        */
+
         //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
         ZedToPcl(pc_pcl, pclTest);
