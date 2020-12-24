@@ -13,6 +13,8 @@ explore this allocation method instead.
 //b: enough, t: each point
 __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* listStart) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+
     sl::float3 pt = pc.data[ptIdx];
     int neighborCount = 0;
     
@@ -20,13 +22,14 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     for(int i = 0; i < pc.size; i++) {
         sl::float3 dvec = (pt - sl::float3(pc.data[i]));
         //this is a neighbor
-        if( dvec.norm() < tolerance) {
+        if( dvec.norm() < tolerance && i != ptIdx) {
             neighborCount++;
         }
     }
     listStart[ptIdx] = neighborCount;
 
     //we must do an exclusive scan using thrust after this kernel
+    //printf("%d: %d \n",ptIdx, neighborCount );
 }
 
 
@@ -42,9 +45,10 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
     
     //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
     for(int i = 0; i < pc.size; i++) {
+
         sl::float3 dvec = (pt - sl::float3(pc.data[i]));
         //this is a neighbor
-        if( dvec.norm() < tolerance) {
+        if( dvec.norm() < tolerance && i != ptIdx) {
             list[neighborCount] = i;
             neighborCount++;
         }
@@ -102,7 +106,7 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels) {
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize, GPU_Cloud_F4 pc) 
 : tolerance(tolerance), minSize(minSize), maxSize(maxSize) {
 
-    cudaMalloc(&listStart, sizeof(int)*pc.size);
+    cudaMalloc(&listStart, sizeof(int)*(pc.size+1));
     cudaMalloc(&labels, sizeof(int)*pc.size);
     cudaMalloc(&f1, sizeof(bool)*pc.size);
     cudaMalloc(&f2, sizeof(bool)*pc.size);
@@ -117,9 +121,24 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
     determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart);
+    thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
+    checkStatus(cudaDeviceSynchronize());
+
+    int totalAdjanecyListsSize;
+    
+    //debug
+    /*
+    int* temp = (int*) malloc(sizeof(int)*(pc.size+1));
+    checkStatus(cudaMemcpy(temp, listStart, sizeof(int)*(pc.size+1), cudaMemcpyDeviceToHost));
+    for(int i = 0; i < pc.size+1; i++) std::cout << "ex scan: " << temp[i] << std::endl; */
+
+    checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size], sizeof(int), cudaMemcpyDeviceToHost));
+    std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
+    /*
+
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
     checkStatus(cudaDeviceSynchronize());
-    thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
+    
     int* totalAdjanecyListsSize;
     checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size-1], sizeof(int), cudaMemcpyDeviceToHost));
     
@@ -134,9 +153,9 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
         f2 = t;
         //get flag to see if we are done
         cudaMemcpy(&stillGoingCPU, stillGoing, sizeof(bool), cudaMemcpyDeviceToHost);
-    }
+    }*/
 }
 
 EuclideanClusterExtractor::~EuclideanClusterExtractor() {
-    
+
 }

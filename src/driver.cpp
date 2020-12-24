@@ -63,29 +63,27 @@ int main(int argc, char** argv) {
 
 
     //Temporary DEBUG model:
-    int testcloudsize = 10;
+    int testcloudsize = 8;
     GPU_Cloud_F4 testcloud;
     //cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
     //testcloud.size = testcloudsize;
     sl::float4 dataCPU[testcloudsize] = {
-        sl::float4(0.1, 0, 0, 4545), 
-        sl::float4(10, 0, 0, 4545),
-        sl::float4(-10, 0, 0.4, 4545),
-        sl::float4(0, 0, 10, 4545),
-        sl::float4(10, 0, 10, 4545),
-        sl::float4(-10, 0, 10,4545),
-        sl::float4(-5, 3, 10,4545),
-        sl::float4(5, 2, 5,4545),
-        sl::float4(2, 5, 2,4545),
-        sl::float4(4, -4, 2,4545),
+        sl::float4(100, 0, 100, 4545), 
+        sl::float4(-100, 0, 100, 4545),
+        sl::float4(0, 0, 100, 4545),
+        sl::float4(100, 100, 100, 4545),
+        sl::float4(-100, 100, 100, 4545),
+        sl::float4(-400, 100, 400, 4545),
+        sl::float4(-420, 100, 400, 4545),
+        sl::float4(400, 100, 400, 4545),
     };
     sl::Mat testcloudmat(cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
     for(int i = 0; i < testcloudsize; i++) testcloudmat.setValue(i, 0, dataCPU[i], sl::MEM::GPU);
     //cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
     testcloud = getRawCloud(testcloudmat, true);
     testcloud.size = testcloudsize;
-    EuclideanClusterExtractor ece(1, 0, 0, testcloud);
-    //ece.extractClusters(testcloud);
+    EuclideanClusterExtractor ece(110, 0, 0, testcloud);
+    ece.extractClusters(testcloud);
 
     while(viewer.isAvailable()) {
         //Todo, Timer class. Timer.start(), Timer.record() 
