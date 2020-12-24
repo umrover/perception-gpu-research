@@ -68,14 +68,14 @@ int main(int argc, char** argv) {
     //cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
     //testcloud.size = testcloudsize;
     sl::float4 dataCPU[testcloudsize] = {
-        sl::float4(100, 0, 100, 4545), 
-        sl::float4(-100, 0, 100, 4545),
-        sl::float4(0, 0, 100, 4545),
-        sl::float4(100, 100, 100, 4545),
-        sl::float4(-100, 100, 100, 4545),
-        sl::float4(-400, 100, 400, 4545),
-        sl::float4(-420, 100, 400, 4545),
-        sl::float4(400, 100, 400, 4545),
+        sl::float4(100, 0, 100, 4545), //0
+        sl::float4(-100, 0, 100, 4545), //1
+        sl::float4(0, 0, 100, 4545), //2
+        sl::float4(100, 100, 100, 4545), //3
+        sl::float4(-100, 100, 100, 4545), //4
+        sl::float4(-400, 100, 400, 4545), //5
+        sl::float4(-420, 100, 400, 4545), //6
+        sl::float4(400, 100, 400, 4545), //7
     };
     sl::Mat testcloudmat(cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
     for(int i = 0; i < testcloudsize; i++) testcloudmat.setValue(i, 0, dataCPU[i], sl::MEM::GPU);

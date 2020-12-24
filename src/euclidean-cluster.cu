@@ -29,7 +29,7 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     listStart[ptIdx] = neighborCount;
 
     //we must do an exclusive scan using thrust after this kernel
-    //printf("%d: %d \n",ptIdx, neighborCount );
+    printf("%d: %d \n",ptIdx, neighborCount );
 }
 
 
@@ -38,6 +38,8 @@ Fairly standard adjacency list structure.
 */
 __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+
     sl::float3 pt = pc.data[ptIdx];
     int neighborCount = 0;
     //get the adjacency list for this point
@@ -123,22 +125,22 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart);
     thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
     checkStatus(cudaDeviceSynchronize());
-
     int totalAdjanecyListsSize;
-    
-    //debug
-    /*
-    int* temp = (int*) malloc(sizeof(int)*(pc.size+1));
+    /*//debugint* temp = (int*) malloc(sizeof(int)*(pc.size+1));
     checkStatus(cudaMemcpy(temp, listStart, sizeof(int)*(pc.size+1), cudaMemcpyDeviceToHost));
     for(int i = 0; i < pc.size+1; i++) std::cout << "ex scan: " << temp[i] << std::endl; */
-
     checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size], sizeof(int), cudaMemcpyDeviceToHost));
     std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
-    /*
-
+    
+    cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
     checkStatus(cudaDeviceSynchronize());
+
+    int* temp2 = (int*) malloc(sizeof(int)*(totalAdjanecyListsSize));
+    checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
+    for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
     
+    /*
     int* totalAdjanecyListsSize;
     checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size-1], sizeof(int), cudaMemcpyDeviceToHost));
     
