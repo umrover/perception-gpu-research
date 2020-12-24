@@ -120,9 +120,21 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
 __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
-    if(labels[ptIdx] == 0) pc.data[ptIdx].w = 3.57331108403e-43;
-    if(labels[ptIdx] > 0) pc.data[ptIdx].w = 100;
-    //printf("dat %d: %f, %f, %f \n", ptIdx,  pc.data[ptIdx].x, pc.data[ptIdx].y,  pc.data[ptIdx].z );
+    
+    int red = 3.57331108403e-43;
+    int green = 9.14767637511e-41;
+    int blue = 2.34180515203e-38;
+    int magenta = 2.34184088514e-38; 
+    int yellow = 9.18340948595e-41;
+    
+    int lbl = labels[ptIdx] % 5;
+
+    if(lbl == 0) pc.data[ptIdx].w = red;
+    if(lbl == 1) pc.data[ptIdx].w = green;
+    if(lbl == 2) pc.data[ptIdx].w = blue;
+    if(lbl == 3) pc.data[ptIdx].w = magenta;
+    if(lbl == 4) pc.data[ptIdx].w = yellow;
+
 }
 
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize, GPU_Cloud_F4 pc) 

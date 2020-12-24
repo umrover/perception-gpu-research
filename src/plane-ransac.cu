@@ -423,7 +423,7 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
     return plane;
 }
 
-RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc, bool flag) {
+RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 &pc, bool flag) {
     this->pc = pc;
 
     int blocks = iterations;
@@ -437,7 +437,8 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc, bool flag) {
     removeInliers<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, optimalModelIndex, modelPoints, threshold, axis, size);
     int sizeCpu;
     cudaMemcpy(&sizeCpu, size, sizeof(int), cudaMemcpyDeviceToHost);
-    std::cout << sizeCpu << std::endl;
+    pc.size = sizeCpu;
+    //std::cout << sizeCpu << std::endl;
     //might be able to use memcpyAsync() here, double check
     checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());

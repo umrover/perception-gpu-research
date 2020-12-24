@@ -31,7 +31,7 @@ class RansacPlane {
         */
         Plane computeModel(GPU_Cloud_F4 pc);
         //non debug kernel
-        Plane computeModel(GPU_Cloud_F4 pc, bool flag);
+        Plane computeModel(GPU_Cloud_F4 &pc, bool flag);
 
 
         /*

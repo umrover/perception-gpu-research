@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
-    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
+    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 150, pcSize); //change the threshold to 100
         
     //PCL integration variables
     int iter = 0;
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
 
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
-    EuclideanClusterExtractor ece(110, 0, 0, tmp);
+    EuclideanClusterExtractor ece(60, 0, 0, tmp);
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -116,22 +116,24 @@ int main(int argc, char** argv) {
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         #endif
         
+        cout << "[size] pre-ransac: " << pc_f4.size << endl;
         
         //Perform RANSAC Plane segmentation to find the ground
         auto ransacStart = high_resolution_clock::now();
-        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4, true);
+        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+
+        cout << "[size] post-ransac: " << pc_f4.size << endl;
 
         /*
         auto eceStart = high_resolution_clock::now();
         ece.extractClusters(pc_f4);
         auto eceStop = high_resolution_clock::now();
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
-        cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
-        */
+        cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; */
+        
 
         //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
