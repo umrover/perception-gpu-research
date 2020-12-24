@@ -69,11 +69,17 @@ no more changes are pending.
 __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, bool* m) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
-    printf("pt idx: %d, label: %d \n", ptIdx, labels[ptIdx]);
+
+    //debug lines
+    if(threadIdx.x == 0) *m = false;
+    __syncthreads();
+    printf("pt idx: %d, label: %d, flag: %d frontier one: %d frontier two: %d \n", ptIdx, labels[ptIdx], (*m) ? 1 : 0, f1[ptIdx] ? 1 : 0, f2[ptIdx] ? 1 : 0);
 
     bool mod = false;
     //TODO, load the NEIGHBOR list to shared memory 
     if(f1[ptIdx]) {
+        printf("active frontier %d \n", ptIdx);
+
         int* list = neighborLists + listStart[ptIdx];
         int listLen = listStart[ptIdx+1] - listStart[ptIdx];
         f1[ptIdx] = false;
@@ -89,7 +95,7 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
                 atomicMin(&labels[list[i]], myLabel);
                 f2[list[i]] = true;
                 *m = true;
-            } else {
+            } else if(myLabel > otherLabel) {
                 myLabel = otherLabel;
                 mod = true;
             }
@@ -152,7 +158,9 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
     for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
     
-    for(int i = 0; i < 3; i++) {
+    for(int i = 0; i < 4; i++) {
+    bool flag = false;
+    cudaMemcpy(stillGoing, &flag, sizeof(bool), cudaMemcpyHostToDevice);
     propogateLabels<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, neighborLists, listStart, labels, f1, f2, stillGoing);
     bool* t = f1;
     f1 = f2;
