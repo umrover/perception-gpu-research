@@ -120,7 +120,9 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
 __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
-    printf("dat %d: %f, %f, %f \n", ptIdx,  pc.data[ptIdx].x, pc.data[ptIdx].y,  pc.data[ptIdx].z );
+    if(labels[ptIdx] == 0) pc.data[ptIdx].w = 3.57331108403e-43;
+    if(labels[ptIdx] > 0) pc.data[ptIdx].w = 100;
+    //printf("dat %d: %f, %f, %f \n", ptIdx,  pc.data[ptIdx].x, pc.data[ptIdx].y,  pc.data[ptIdx].z );
 }
 
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize, GPU_Cloud_F4 pc) 
@@ -132,7 +134,7 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
     cudaMalloc(&f2, sizeof(bool)*pc.size);
     cudaMalloc(&stillGoing, sizeof(bool));
 
-    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, nullptr);
+   // colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, nullptr);
 }
 
 //perhaps use dynamic parallelism 
@@ -184,6 +186,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
         //get flag to see if we are done
         cudaMemcpy(&stillGoingCPU, stillGoing, sizeof(bool), cudaMemcpyDeviceToHost);
     }
+    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels);
 }
 
 EuclideanClusterExtractor::~EuclideanClusterExtractor() {
