@@ -71,14 +71,14 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
     if(ptIdx >= pc.size) return;
 
     //debug lines
-    if(threadIdx.x == 0) *m = false;
-    __syncthreads();
-    printf("pt idx: %d, label: %d, flag: %d frontier one: %d frontier two: %d \n", ptIdx, labels[ptIdx], (*m) ? 1 : 0, f1[ptIdx] ? 1 : 0, f2[ptIdx] ? 1 : 0);
+   // if(threadIdx.x == 0) *m = false;
+   // __syncthreads();
+   // printf("pt idx: %d, label: %d, flag: %d frontier one: %d frontier two: %d \n", ptIdx, labels[ptIdx], (*m) ? 1 : 0, f1[ptIdx] ? 1 : 0, f2[ptIdx] ? 1 : 0);
 
     bool mod = false;
     //TODO, load the NEIGHBOR list to shared memory 
     if(f1[ptIdx]) {
-        printf("active frontier %d \n", ptIdx);
+        //printf("active frontier %d \n", ptIdx);
 
         int* list = neighborLists + listStart[ptIdx];
         int listLen = listStart[ptIdx+1] - listStart[ptIdx];
@@ -108,12 +108,12 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
         }
     } 
 
-
+    /*
     __syncthreads();
     if(threadIdx.x == 0) {
     if(*m) printf("still going \n");
     else printf("done \n");
-    }
+    }*/
 }
 
 //this debug kernel colors points based on their label
@@ -158,6 +158,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
     for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
     
+    /*
     for(int i = 0; i < 4; i++) {
     bool flag = false;
     cudaMemcpy(stillGoing, &flag, sizeof(bool), cudaMemcpyHostToDevice);
@@ -165,21 +166,24 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     bool* t = f1;
     f1 = f2;
     f2 = t;
-    }
+    }*/
 
-    /*
+    
     bool stillGoingCPU = true;    
     while(stillGoingCPU) {
-        checkStatus(cudaMemsetAsync(stillGoing, 0, 1));
+        //one iteration of label propogation
+        stillGoingCPU = false;
+        cudaMemcpy(stillGoing, &stillGoingCPU, sizeof(bool), cudaMemcpyHostToDevice);
         propogateLabels<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, neighborLists, listStart, labels, f1, f2, stillGoing);
 
         //swap the frontiers
         bool* t = f1;
         f1 = f2;
         f2 = t;
+
         //get flag to see if we are done
         cudaMemcpy(&stillGoingCPU, stillGoing, sizeof(bool), cudaMemcpyDeviceToHost);
-    }*/
+    }
 }
 
 EuclideanClusterExtractor::~EuclideanClusterExtractor() {
