@@ -121,19 +121,19 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
     
-    int red = 3.57331108403e-43;
-    int green = 9.14767637511e-41;
-    int blue = 2.34180515203e-38;
-    int magenta = 2.34184088514e-38; 
-    int yellow = 9.18340948595e-41;
+    float red = 3.57331108403e-43;
+    float green = 9.14767637511e-41;
+    float blue = 2.34180515203e-38;
+    float magenta = 2.34184088514e-38; 
+    float yellow = 9.18340948595e-41;
     
     int lbl = labels[ptIdx] % 5;
-
+    
     if(lbl == 0) pc.data[ptIdx].w = red;
     if(lbl == 1) pc.data[ptIdx].w = green;
     if(lbl == 2) pc.data[ptIdx].w = blue;
     if(lbl == 3) pc.data[ptIdx].w = magenta;
-    if(lbl == 4) pc.data[ptIdx].w = yellow;
+    if(lbl == 4) pc.data[ptIdx].w = yellow; 
 
 }
 
@@ -151,6 +151,7 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
 
 //perhaps use dynamic parallelism 
 void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
+    if(pc.size == 0) return;
     //set frontier arrays appropriately [done in build graph]
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
@@ -168,8 +169,8 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
     checkStatus(cudaDeviceSynchronize());
 
-    int* temp2 = (int*) malloc(sizeof(int)*(totalAdjanecyListsSize));
-    checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
+    //int* temp2 = (int*) malloc(sizeof(int)*(totalAdjanecyListsSize));
+    //checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
     //for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
     
     /*
@@ -199,6 +200,8 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
         cudaMemcpy(&stillGoingCPU, stillGoing, sizeof(bool), cudaMemcpyDeviceToHost);
     }
     colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels);
+    checkStatus(cudaDeviceSynchronize()); //not needed?
+    cudaFree(neighborLists);
 }
 
 EuclideanClusterExtractor::~EuclideanClusterExtractor() {
