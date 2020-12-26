@@ -22,7 +22,7 @@ class EuclideanClusterExtractor {
         */
         EuclideanClusterExtractor(float tolerance, int minSize, float maxSize);
 
-        ~EuclideanClusterExtractor();
+        //~EuclideanClusterExtractor();
 
         /*
         EFFECTS:

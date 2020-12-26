@@ -11,6 +11,7 @@
 #include "pcl.hpp"
 #include<unistd.h>
 #include <thread>
+#include "euclidean-cluster.hpp"
 
 using namespace std::chrono; 
 
@@ -43,13 +44,17 @@ int main(int argc, char** argv) {
         sl::float4(-10, 0, 0.4, 4545),
         sl::float4(0, 0, 10, 4545),
         sl::float4(10, 0, 10, 4545),
-        sl::float4(-10, 0, 10,4545),
-        sl::float4(-5, 3, 10,4545),
-        sl::float4(5, 2, 5,4545),
-        sl::float4(2, 5, 2,4545),
-        sl::float4(4, -4, 2,4545),
+        sl::float4(-10, 0, 10, 4545),
+        sl::float4(-5, 3, 10, 4545),
+        sl::float4(5, 2, 5, 4545),
+        sl::float4(2, 5, 2, 4545),
+        sl::float4(4, -4, 2, 4545),
     };
     cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
+
+    EuclideanClusterExtractor fish(1.0,1,1.0);
+    fish.findBoundingBox(testcloud);
+    /*
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
     
@@ -77,7 +82,7 @@ int main(int argc, char** argv) {
     pclViewer = createRGBVisualizer(pc_pcl);
 
     thread zedViewerThread(spinZedViewer);
-
+    
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
@@ -131,4 +136,5 @@ int main(int argc, char** argv) {
     gpu_cloud.free();
     zed.close(); 
     return 1;
+*/
 }

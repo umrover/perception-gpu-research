@@ -1,4 +1,5 @@
 #include <sl/Camera.hpp>
+#include <stdio.h>
 
 #ifndef COMMON
 #define COMMON

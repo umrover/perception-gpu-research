@@ -223,6 +223,8 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int *minGlobal, int *maxGlob
     if(threadIdx.x == 0){
         minGlobal[0] = localMin[threadIdx.x];
         maxGlobal[0] = localMax[threadIdx.x];
+        std::printf("Axis %i min x: %d y: %d z: %d\n", axis, localMinData[threadIdx.x].x, localMinData[threadIdx.x].y, localMinData[threadIdx.x].z);
+        std::printf("Axis %i max x: %d y: %d z: %d\n", axis, localMaxData[threadIdx.x].x, localMaxData[threadIdx.x].y, localMaxData[threadIdx.x].z);
     }
       
 }
@@ -343,10 +345,11 @@ __global__ colorClusters(GPU_Cloud_F4 pc, int* labels) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx == )
 }
-
+*/
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize) 
 : tolerance(tolerance), minSize(minSize), maxSize(maxSize) {}
-
+/*
 EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
 
-}*/
+}
+*/
