@@ -72,18 +72,5 @@ GPU_Cloud_F4 getRawCloud(sl::Mat zed_cloud, bool f4) {
     g.size = zed_cloud.getWidth() * zed_cloud.getHeight();
     return g;
 }
-float float4::getData(int axis) {
-    if(!axis)
-            return this->x;
-        else if(axis == 1)
-            return this->y;
-        else
-            return this->z;
-}
-            
-float GPU_Cloud_F4::getData(int axis, int index) {
-    return pc.data[index].getData(axis);    
-}
-
 //void PclToZed();*/
 
