@@ -40,9 +40,11 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minX, int *maxX,
     else { //Accounts for final block with more threads than points
         notFull = true;
     }
-
+    
+    printf("Copied %i", notFull);
     __syncthreads(); //At this point all data has been populated
     
+
     int aliveThreads = MAX_THREADS / 2;
 
     if(!notFull){ //Don't have to worry about checking for going out of bounds
@@ -237,21 +239,33 @@ for this function is 1048576 since it assumes the resulting reduction fits into 
 void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     int blocks = ceilDiv(pc.size,MAX_THREADS);
     int threads = MAX_THREADS;
-    int minX[blocks]; //Stores max and min x,y,z values for each block in global memory
-    int maxX[blocks];
-    int minY[blocks]; 
-    int maxY[blocks];
-    int minZ[blocks]; 
-    int maxZ[blocks];
+    int *minX; //Stores max and min x,y,z values for each block in global memory
+    int *maxX;
+    int *minY; 
+    int *maxY;
+    int *minZ; 
+    int *maxZ;
+    checkStatus(cudaMalloc(&minX, sizeof(int) * blocks));
+    checkStatus(cudaMalloc(&maxX, sizeof(int) * blocks));
+    checkStatus(cudaMalloc(&minY, sizeof(int) * blocks));
+    checkStatus(cudaMalloc(&maxY, sizeof(int) * blocks));
+    checkStatus(cudaMalloc(&minZ, sizeof(int) * blocks));
+    checkStatus(cudaMalloc(&maxZ, sizeof(int) * blocks));
     
+    std::cerr << "blocks: " << blocks << "\n";
+    std::cerr << "threads: " << threads << "\n";
     findBoundingBoxKernel<<<blocks,threads>>>(pc, minX, maxX, minY, maxY, minZ, maxZ); //Find 6 bounding values for all blocks
     checkStatus(cudaGetLastError());
+    std::cerr << "checked 1\n";
     findExtremaKernel<<<1, threads>>>(pc, minX, maxX, 0);
     checkStatus(cudaGetLastError());
+    std::cerr << "checked 2\n";
     findExtremaKernel<<<1, threads>>>(pc, minY, maxY, 1);
     checkStatus(cudaGetLastError());
+    std::cerr << "checked 3\n";
     findExtremaKernel<<<1, threads>>>(pc, minZ, maxZ, 2);
     checkStatus(cudaGetLastError());
+    std::cerr << "checked 4\n";
 
 }
 /*

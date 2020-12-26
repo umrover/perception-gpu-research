@@ -54,6 +54,8 @@ int main(int argc, char** argv) {
 
     EuclideanClusterExtractor fish(1.0,1,1.0);
     fish.findBoundingBox(testcloud);
+
+    
     /*
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
