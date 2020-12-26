@@ -65,10 +65,10 @@ void PassThrough::run(GPU_Cloud cloud){
 
     //Create pointer to value in device memory
     int* d_newSize;
-    cudaMalloc(&d_newSize, sizeof(int));
+    checkStatus(cudaMalloc(&d_newSize, sizeof(int)));
 
     //Copy from host to device
-    cudaMemcpy(d_newSize, h_newSize, sizeof(int), cudaMemcpyHostToDevice);
+    checkStatus(cudaMemcpy(d_newSize, h_newSize, sizeof(int), cudaMemcpyHostToDevice));
 
     //Run PassThrough Kernel
     passThroughKernel<<<ceilDiv(gpu_cloud.size, BLOCK_SIZE), BLOCK_SIZE>>>(this->gpu_cloud, axis, min, max, d_newSize);
@@ -76,7 +76,7 @@ void PassThrough::run(GPU_Cloud cloud){
     cudaDeviceSynchronize();
 
     //Copy from device to host
-    cudaMemcpy(h_newSize, d_newSize, sizeof(int), cudaMemcpyDeviceToHost);
+    checkStatus(cudaMemcpy(h_newSize, d_newSize, sizeof(int), cudaMemcpyDeviceToHost));
 
     //Update size of cloud
     cloud.size() = *h_newSize;

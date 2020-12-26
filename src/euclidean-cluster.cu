@@ -134,6 +134,82 @@ __global__ findBoundingBoxKernel(GP_CLOUD_F4 &pc, int *minX, int *maxX,
     maxY[blockIdx.x] = localMaxY[0] + blockDim.x*blockIdx.x;
     minZ[blockIdx.x] = localMinZ[0] + blockDim.x*blockIdx.x;
     maxZ[blockIdx.x] = localMaxZ[0] + blockDim.x*blockIdx.x;
+
+    return;
+
+}
+
+/**
+The final reduction to extrema to find the ultimate extrema from the
+provided list. Split into 3 blocks each calculating the max and min 
+values for their given axis. Needed to divide it up since float4 = 16bytes
+and we have 2048 float4
+*/
+__global__ findExtremaKernel (GPU_Cloud_F4 pc, int *minGlobal, int *maxGlobal, int axis) {
+    
+    //Copy from global to shared memory
+    __shared__ int localMin[MAX_THREADS];
+    __shared__ int localMax[MAX_THREADS];
+    __shared__ sl::float4 localMinData[MAX_THREADS];
+    __shared__ sl::float4 localMaxData[MAX_THREADS];
+    
+    //Copy in all of the local data check for uninitialized values
+    //Shouldn't cause warp divergence since the first set of contiguous
+    //numbers will enter the else and the second half will enter the if
+    if(localMin[threadIdx.x] == 0 && localMax[threadIdx.x] == 0) {
+        localMin[threadIdx.x] = -1;
+        localMax[threadIdx.x] = -1;
+        localMinData[threadIdx.x] = -1;
+        localMaxData[threadIdx.x] = -1;
+    }
+    else {
+        localMin[threadIdx.x] = minGlobal[threadIdx.x];
+        localMax[threadIdx.x] = maxGlobal[threadIdx.x];
+        localMinData[threadIdx.x] = pc.getData(axis, localMin[threadIdx.x]);
+        localMaxData[threadIdx.x] = pc.getData(axis, localMax[threadIdx.x]);
+    }
+
+    //Registry memory
+    int min = localMin[threadIdx.x];
+    int max = localMax[threadIdx.x];
+    sl::float4 minData = localMinData[threadIdx.x];
+    sl::float4 maxData = localMaxData[threadIdx.x];
+
+    __syncthreads();
+
+    //Do parallel reduction and modify both values as you go along
+    int aliveThreads = (blockDim.x) / 2;
+    while (aliveThreads > 0) {
+        if (threadIdx.x < aliveThreads && localMin[threadIdx.x] != -1) {
+            //Check if value smaller than min
+            if(minData.getData(axis) > localMinData[threadIdx.x + aliveThreads].getData(axis)) {
+                minData = localMinData[threadIdx.x + aliveThreads];
+                min = localMin[threadIdx.x + aliveThreads];
+            }
+            //Check if value larger than max
+            if(maxData.getData(axis) > localMaxData[threadIdx.x + aliveThreads].getData(axis)) {
+                maxData = localMaxData[threadIdx.x + aliveThreads];
+                max = localMax[threadIdx.x + aliveThreads];
+            }
+
+            //Check if thread is going to die next iteration
+            if (threadIdx.x >= (aliveThreads) / 2) {
+                localMin[threadIdx.x] = min;
+                localMax[threadIdx.x] = max;
+                localMinData[threadIdx.x] = minData;
+                localMaxData[threadIdx.x] = maxData;]
+            }
+        }
+        __syncthreads();
+        aliveThreads /= 2;
+    }
+
+    //If final thread write to global memory
+    if(threadIdx.x == 0){
+        minGlobal[0] = localMin[threadIdx.x];
+        maxGlobal[0] = localMax[threadIdx.x];
+    }
+      
 }
 
 /*
@@ -152,7 +228,14 @@ void EuclideanClusterExtractor::findBoundingBox(GP_CLOUD_F4 &pc){
     int maxZ[blocks];
     
     findBoundingBoxKernel<<<blocks,threads>>>(pc, minX, maxX, minY, maxY, minZ, maxZ); //Find 6 bounding values for all blocks
-    
+    checkStatus(cudaGetLastError());
+    findExtremaKernel<<<1, threads>>>(pc, minX, maxX, 0);
+    checkStatus(cudaGetLastError());
+    findExtremaKernel<<<1, threads>>>(pc, minY, maxY, 1);
+    checkStatus(cudaGetLastError());
+    findExtremaKernel<<<1, threads>>>(pc, minZ, maxZ, 2);
+    checkStatus(cudaGetLastError());
+
 }
 /*
 This kernel determines the structure of the graph but does not build it

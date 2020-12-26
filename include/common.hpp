@@ -13,10 +13,22 @@ struct GPU_Cloud {
     int size;
 };
 
+/**
+ \brief: returns data corresponding to axis
+ \param axis: 0 is x, 1 is y, 2 is z
+ */
+float float4::getData(int axis);
+
 struct GPU_Cloud_F4 {
     sl::float4* data;
     int stride; 
     int size;
+
+    /**
+     \brief returns data corresponding to axis and index 
+     \param axis: 0 is x, 1 is y, 2 is z 
+     */
+    float getData(int axis, int index);
 };
 
 //GPU Indicies data
