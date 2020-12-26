@@ -295,6 +295,55 @@ __global__ void computeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* mo
     }
 }
 
+__global__ void removeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* modelPoints, float threshold, sl::float3 axis, int* newSize) {
+    if(*optimalModelIndex < 0) return;
+
+    int pointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+
+    sl::float4 datum;
+    int newIdx = pc.size-1;
+
+    if(pointIdx < pc.size) {
+        sl::float3 modelPt0 (pc.data[modelPoints[*optimalModelIndex*3]]);
+        sl::float3 modelPt1 (pc.data[modelPoints[*optimalModelIndex*3 + 1]]);
+        sl::float3 modelPt2 (pc.data[modelPoints[*optimalModelIndex*3 + 2]]);
+
+        // get the two vectors on the plane defined by the model points
+        sl::float3 v1 (modelPt1 - modelPt0);
+        sl::float3 v2 (modelPt2 - modelPt0);
+        
+        //get a vector normal to the plane model
+        sl::float3 n = sl::float3::cross(v1, v2);
+    
+        // point in the point cloud that could be an inlier or outlier
+        sl::float3 curPt(pc.data[pointIdx]);
+        
+        //calculate distance of cur pt to the plane formed by the 3 model points [see doc for the complete derrivation]
+        sl::float3 d_to_model_pt = (curPt - modelPt1);
+        
+        float d = abs(sl::float3::dot(n, d_to_model_pt)) / n.norm();
+        
+        //add a 0 if inlier, 1 if not 
+        int flag = (d < threshold) ? 1 : 0; //very probalmatic line, how can we reduce these checks
+        //int flag = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
+        
+        if(flag != 0) { //colors are ABGR in float space(LOL?????)
+            pc.data[pointIdx].w = 100;
+            pc.data[pointIdx].x = 0;
+            pc.data[pointIdx].y = 0;
+            pc.data[pointIdx].z = 0;
+
+        } else {
+            datum = pc.data[pointIdx];
+            newIdx = atomicAdd(newSize, 1);
+        }
+    }
+    
+    __syncthreads();
+    pc.data[newIdx] = datum;
+
+}
+
 
 RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float threshold, int pcSize)
 : pc(pc), axis(axis), epsilon(epsilon), iterations(iterations), threshold(threshold)  {
@@ -359,6 +408,37 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
     selectOptimalRansacModel<<<1, MAX_THREADS>>>(pc, inlierCounts, modelPoints, selection, iterations, optimalModelIndex);
     computeInliers<<<1, threads>>>(pc, optimalModelIndex, modelPoints, threshold, axis);
 
+    //might be able to use memcpyAsync() here, double check
+    checkStatus(cudaGetLastError());
+    checkStatus(cudaDeviceSynchronize());
+
+    cudaMemcpy(selectedModel, selection, sizeof(float)*3*3, cudaMemcpyDeviceToHost);
+    //for(int i = 0; i < 3; i++) {
+    //    cout << "model " << i << ":" << selectedModel[0] << selected 
+    //}
+    Plane plane = {sl::float3(selectedModel[0], selectedModel[1], selectedModel[2]), 
+                         sl::float3(selectedModel[3], selectedModel[4], selectedModel[5]) ,
+                         sl::float3(selectedModel[6], selectedModel[7], selectedModel[8])};
+    
+    return plane;
+}
+
+RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 &pc, bool flag) {
+    this->pc = pc;
+
+    int blocks = iterations;
+    int threads = MAX_THREADS;
+    ransacKernel<<<blocks, threads>>>(pc, inlierCounts, modelPoints, threshold, axis, cos(epsilon*3.1415/180));
+    selectOptimalRansacModel<<<1, MAX_THREADS>>>(pc, inlierCounts, modelPoints, selection, iterations, optimalModelIndex);
+    
+    int* size;
+    cudaMalloc(&size, sizeof(int));
+    cudaMemset(size, 0, sizeof(int));
+    removeInliers<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, optimalModelIndex, modelPoints, threshold, axis, size);
+    int sizeCpu;
+    cudaMemcpy(&sizeCpu, size, sizeof(int), cudaMemcpyDeviceToHost);
+    pc.size = sizeCpu;
+    //std::cout << sizeCpu << std::endl;
     //might be able to use memcpyAsync() here, double check
     checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());

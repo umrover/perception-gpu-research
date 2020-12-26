@@ -12,6 +12,7 @@
 #include<unistd.h>
 #include <thread>
 #include "pass-through.hpp"
+#include "euclidean-cluster.hpp"
 
 using namespace std::chrono; 
 
@@ -20,7 +21,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-//#define USE_PCL
+#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -55,7 +56,7 @@ int main(int argc, char** argv) {
     
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
-    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 100, pcSize);
+    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 150, pcSize); //change the threshold to 100
         
     //PCL integration variables
     int iter = 0;
@@ -67,6 +68,35 @@ int main(int argc, char** argv) {
     //slows down performance of all GPU functions since running in parallel with them
     thread zedViewerThread(spinZedViewer);
     #endif
+
+
+    //Temporary DEBUG model:
+    /*
+    int testcloudsize = 8;
+    GPU_Cloud_F4 testcloud;
+    //cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
+    //testcloud.size = testcloudsize;
+    sl::float4 dataCPU[testcloudsize] = {
+        sl::float4(100, 0, 100, 4545), //0
+        sl::float4(-100, 0, 100, 4545), //1
+        sl::float4(0, 0, 100, 4545), //2
+        sl::float4(100, 100, 100, 4545), //3
+        sl::float4(-100, 100, 100, 4545), //4
+        sl::float4(-400, 100, 400, 4545), //5
+        sl::float4(-420, 100, 400, 4545), //6
+        sl::float4(400, 100, 400, 4545), //7
+    };
+    sl::Mat testcloudmat(cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
+    for(int i = 0; i < testcloudsize; i++) testcloudmat.setValue(i, 0, dataCPU[i], sl::MEM::GPU);
+    //cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
+    testcloud = getRawCloud(testcloudmat, true);
+    testcloud.size = testcloudsize;
+    EuclideanClusterExtractor ece(110, 0, 0, testcloud);
+    ece.extractClusters(testcloud);*/
+
+    GPU_Cloud_F4 tmp;
+    tmp.size = cloud_res.width*cloud_res.height;
+    EuclideanClusterExtractor ece(520, 0, 0, tmp); //60/120
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -81,7 +111,9 @@ int main(int argc, char** argv) {
         #endif
 
         //Grab cloud from the Zed camera
+        
         #ifndef USE_PCL
+        
         auto grabStart = high_resolution_clock::now();
         zed.grab();
         zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
@@ -93,41 +125,57 @@ int main(int argc, char** argv) {
         #endif
         
         //Run PassThrough Filter
+        /*
         auto passThroughStart = high_resolution_clock::now();
         passZ.run(pc_f4);
         passY.run(pc_f4);
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
         cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
-
+        */
+        cout << "[size] pre-ransac: " << pc_f4.size << endl;
+        
         //Perform RANSAC Plane segmentation to find the ground
         auto ransacStart = high_resolution_clock::now();
-        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4);
+        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4, true);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
+
+        cout << "[size] post-ransac: " << pc_f4.size << endl;
+
+        
+        auto eceStart = high_resolution_clock::now();
+        ece.extractClusters(pc_f4);
+        auto eceStop = high_resolution_clock::now();
+        auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
+        cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
         
         #ifndef USE_PCL
         viewer.isAvailable();
         #endif
 
         //PCL viewer
+        
+
+        //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
-
         unsigned int microsecond = 1000000;
        // usleep(microsecond);
         viewer.updatePointCloud(pclTest);
         #endif
 
 
-        //ZED sdk custom viewer
+        //ZED sdk custom viewer ONLY
         #ifndef USE_PCL
         //draw an actual plane on the viewer where the ground is
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
+       // viewer.updatePointCloud(testcloudmat);
+
         #endif
 
         cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
