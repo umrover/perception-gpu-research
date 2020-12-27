@@ -6,6 +6,8 @@
 #define CHANNEL 4
 #define BLOCK_SIZE 1024
 
+#define VIEWER_BGR_COLOR 2.14804915479e-38
+
 //GPU point cloud struct that can be passed to cuda kernels and represents a point cloud
 struct GPU_Cloud {
     float* data;

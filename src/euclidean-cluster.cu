@@ -128,9 +128,7 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* valu
     while(true) {
         if(labels[ptIdx] == keys[i]) {
             if(values[i] < minCloudSize) {
-                pc.data[ptIdx].x = 0;
-                pc.data[ptIdx].y = 0;
-                pc.data[ptIdx].z = 0;
+                pc.data[ptIdx].w = VIEWER_BGR_COLOR;
                 return;
             }
             else break;

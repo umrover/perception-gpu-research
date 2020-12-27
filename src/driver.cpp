@@ -29,7 +29,9 @@ GLViewer viewer;
 
 //This is a thread to just spin the zed viewer
 void spinZedViewer() {
-    while(viewer.isAvailable()) {}
+    while(viewer.isAvailable()) {
+        std::this_thread::sleep_for (std::chrono::milliseconds(10));
+    }
 }
 
 int main(int argc, char** argv) {  
@@ -52,11 +54,11 @@ int main(int argc, char** argv) {
 
     //Pass Through Filter
     PassThrough passZ('z', 200.0, 7000.0); //This probly won't do much since range so large
-    PassThrough passY('y', 100.0, 600.0); 
+   // PassThrough passY('y', 100.0, 600.0); 
     
     //This is a RANSAC model that we will use
     //sl::float3 axis, float epsilon, int iterations, float threshold,  int pcSize
-    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 150, pcSize); //change the threshold to 100
+    RansacPlane ransac(sl::float3(0, 1, 0), 7, 400, 150, pcSize); //change the threshold to 150
         
     //PCL integration variables
     int iter = 0;
@@ -128,11 +130,12 @@ int main(int argc, char** argv) {
         /*
         auto passThroughStart = high_resolution_clock::now();
         passZ.run(pc_f4);
-        passY.run(pc_f4);
+        //passY.run(pc_f4);
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
         cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
         */
+       
         cout << "[size] pre-ransac: " << pc_f4.size << endl;
         
         //Perform RANSAC Plane segmentation to find the ground

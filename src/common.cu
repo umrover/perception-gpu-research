@@ -73,5 +73,12 @@ GPU_Cloud_F4 getRawCloud(sl::Mat zed_cloud, bool f4) {
     g.size = zed_cloud.getWidth() * zed_cloud.getHeight();
     return g;
 }
-//void PclToZed();*/
 
+
+//void PclToZed();*/
+/*
+__global__
+
+void sanatizeCloudDisplay(GPU_Cloud_F4, sl::Resolution memoryAllocated) {
+
+} */

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <cmath>
 #include <limits>
+#include "common.hpp"
 
 PassThrough::PassThrough(char axis, float min, float max) : min{min}, max{max} {
 
@@ -34,7 +35,11 @@ __global__ void passThroughKernel(GPU_Cloud_F4 cloud, int axis, float min, float
         || (axis == 2 && (cloud.data[idx].z > max || cloud.data[idx].z < min ||
             isnan(cloud.data[idx].z) || isinf(cloud.data[idx].z)))
     ) {
-        cloud.data[idx].w = 4353.0;
+        //cloud.data[idx].w = 4353.0;
+        //zed viewer background
+        cloud.data[idx].w = VIEWER_BGR_COLOR;//2.35098856151e-38;
+
+
         return;
     }
        

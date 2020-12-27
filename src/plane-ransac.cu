@@ -85,6 +85,12 @@ __global__ void ransacKernel(GPU_Cloud_F4 pc, float* inlierCounts, int* modelPoi
     int randIdx0 = modelPoints[iteration*3 + 0];
     int randIdx1 = modelPoints[iteration*3 + 1];
     int randIdx2 = modelPoints[iteration*3 + 2];
+
+    if(randIdx0 >= pc.size || randIdx1 >= pc.size || randIdx2 >= pc.size) {
+        inlierCounts[iteration] = 0;
+        return;
+    }
+
     sl::float3 modelPt0(pc.data[randIdx0]);
     sl::float3 modelPt1(pc.data[randIdx1]);
     sl::float3 modelPt2(pc.data[randIdx2]);    
@@ -328,10 +334,11 @@ __global__ void removeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* mod
         //int flag = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
         
         if(flag != 0) { //colors are ABGR in float space(LOL?????)
-            pc.data[pointIdx].w = 100;
-            pc.data[pointIdx].x = 0;
-            pc.data[pointIdx].y = 0;
-            pc.data[pointIdx].z = 0;
+            pc.data[pointIdx].w = VIEWER_BGR_COLOR;
+           // pc.data[pointIdx].x = 0;
+           // pc.data[pointIdx].y = 0;
+           // pc.data[pointIdx].z = 0;
+           
 
         } else {
             datum = pc.data[pointIdx];
