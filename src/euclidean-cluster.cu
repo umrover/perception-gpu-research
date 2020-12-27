@@ -122,16 +122,14 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minXGlobal, int *max
         if (threadIdx.x < aliveThreads) {
             
             if(aliveThreads + threadIdx.x + blockDim.x*blockIdx.x < pc.size) { //If points to valid data
-                if(data[aliveThreads + threadIdx.x].x < data[minX].x) { minX = aliveThreads + threadIdx.x; }
-                printf("%.1f < %.1f \n", data[aliveThreads+threadIdx.x].x, data[minX].x);
-                //minX = (data[aliveThreads + threadIdx.x].x < data[minX].x) ? (aliveThreads + threadIdx.x) : minX;
+                minX = (data[aliveThreads + threadIdx.x].x < data[minX].x) ? aliveThreads + threadIdx.x : minX;
                 maxX = (data[aliveThreads + threadIdx.x].x > data[maxX].x) ? aliveThreads + threadIdx.x : maxX;
                 minY = (data[aliveThreads + threadIdx.x].y < data[minY].y) ? aliveThreads + threadIdx.x : minY;
                 maxY = (data[aliveThreads + threadIdx.x].y > data[maxY].y) ? aliveThreads + threadIdx.x : maxY;
                 minZ = (data[aliveThreads + threadIdx.x].z < data[minZ].z) ? aliveThreads + threadIdx.x : minZ;
                 maxZ = (data[aliveThreads + threadIdx.x].z > data[maxZ].z) ? aliveThreads + threadIdx.x : maxZ;
             }
-            printf("f (%d, %d) ", actualIndex, minX);
+            printf("(%d, %d) ", actualIndex, minX);
             if (threadIdx.x >= (aliveThreads) / 2) {//Your going to die next iteration, so write to shared
                 localMinX[threadIdx.x] = minX;
                 localMaxX[threadIdx.x] = maxX;
@@ -178,13 +176,17 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minXGlobal, int *max
     }
 
     //Write to global memory
-    minXGlobal[blockIdx.x] = localMinX[0] + blockDim.x*blockIdx.x;
-    maxXGlobal[blockIdx.x] = localMaxX[0] + blockDim.x*blockIdx.x;
-    minYGlobal[blockIdx.x] = localMinY[0] + blockDim.x*blockIdx.x;
-    maxYGlobal[blockIdx.x] = localMaxY[0] + blockDim.x*blockIdx.x;
-    minZGlobal[blockIdx.x] = localMinZ[0] + blockDim.x*blockIdx.x;
-    maxZGlobal[blockIdx.x] = localMaxZ[0] + blockDim.x*blockIdx.x;
-
+    if(threadIdx.x == 0){
+        minXGlobal[blockIdx.x] = localMinX[0] + blockDim.x*blockIdx.x;
+        maxXGlobal[blockIdx.x] = localMaxX[0] + blockDim.x*blockIdx.x;
+        minYGlobal[blockIdx.x] = localMinY[0] + blockDim.x*blockIdx.x;
+        maxYGlobal[blockIdx.x] = localMaxY[0] + blockDim.x*blockIdx.x;
+        minZGlobal[blockIdx.x] = localMinZ[0] + blockDim.x*blockIdx.x;
+        maxZGlobal[blockIdx.x] = localMaxZ[0] + blockDim.x*blockIdx.x;
+        printf("Smallest X: %.1f at %d\n", data[localMinX[0]].x, localMinX[0]);
+        printf("Smallest Y: %.1f at %d\n", data[localMinY[0]].y, localMinY[0]);
+        printf("Smallest Z: %.1f at %d\n", data[localMinZ[0]].z, localMinZ[0]);   
+    }
     return;
 
 }
