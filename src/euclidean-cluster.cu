@@ -197,7 +197,7 @@ provided list. Split into 3 blocks each calculating the max and min
 values for their given axis. Needed to divide it up since float4 = 16bytes
 and we have 2048 float4
 */
-__global__ void findExtremaKernel (GPU_Cloud_F4 pc, int *minGlobal, int *maxGlobal, int axis) {
+__global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, int *maxGlobal, int axis) {
     
     //Copy from global to shared memory
     const int threads = 8;
@@ -209,7 +209,8 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int *minGlobal, int *maxGlob
     //Copy in all of the local data check for uninitialized values
     //Shouldn't cause warp divergence since the first set of contiguous
     //numbers will enter the else and the second half will enter the if
-    if(localMin[threadIdx.x] == 0 && localMax[threadIdx.x] == 0) {
+    
+    if(threadIdx.x >= size) {
         localMin[threadIdx.x] = -1;
         localMax[threadIdx.x] = -1;
         localMinData[threadIdx.x] = pc.data[0];
@@ -221,26 +222,29 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int *minGlobal, int *maxGlob
         localMinData[threadIdx.x] = pc.data[localMin[threadIdx.x]];
         localMaxData[threadIdx.x] = pc.data[localMax[threadIdx.x]];
     }
+    __syncthreads();
 
-    //Registry memory
+    printf("(%d ,%d) ", threadIdx.x, localMin[threadIdx.x]);
+
+    //Registry memory initializations
     int min = localMin[threadIdx.x];
     int max = localMax[threadIdx.x];
+    int aliveThreads = (blockDim.x) / 2;
     sl::float4 minData = localMinData[threadIdx.x];
     sl::float4 maxData = localMaxData[threadIdx.x];
 
     __syncthreads();
 
     //Do parallel reduction and modify both values as you go along
-    int aliveThreads = (blockDim.x) / 2;
     while (aliveThreads > 0) {
-        if (threadIdx.x < aliveThreads && localMin[threadIdx.x] != -1) {
+        if (threadIdx.x < aliveThreads && localMin[threadIdx.x+aliveThreads] != -1) {
             //Check if value smaller than min
             if(getFloatData(axis, minData) > getFloatData(axis, localMinData[threadIdx.x + aliveThreads])) {
                 minData = localMinData[threadIdx.x + aliveThreads];
                 min = localMin[threadIdx.x + aliveThreads];
             }
             //Check if value larger than max
-            if(getFloatData(axis, maxData) > getFloatData(axis, localMaxData[threadIdx.x + aliveThreads])) {
+            if(getFloatData(axis, maxData) < getFloatData(axis, localMaxData[threadIdx.x + aliveThreads])) {
                 maxData = localMaxData[threadIdx.x + aliveThreads];
                 max = localMax[threadIdx.x + aliveThreads];
             }
@@ -254,15 +258,20 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int *minGlobal, int *maxGlob
             }
         }
         __syncthreads();
-        aliveThreads /= 2;
+        if (threadIdx.x < aliveThreads && localMin[threadIdx.x+aliveThreads] != -1){
+                printf("(%d, %d) ", threadIdx.x, min);
+        }
+            if(threadIdx.x == 0) printf("\n");
+                aliveThreads /= 2;
+            __syncthreads();
     }
 
     //If final thread write to global memory
     if(threadIdx.x == 0){
         minGlobal[0] = localMin[threadIdx.x];
         maxGlobal[0] = localMax[threadIdx.x];
-        std::printf("Axis %i min x: %d y: %d z: %d\n", axis, localMinData[threadIdx.x].x, localMinData[threadIdx.x].y, localMinData[threadIdx.x].z);
-        std::printf("Axis %i max x: %d y: %d z: %d\n", axis, localMaxData[threadIdx.x].x, localMaxData[threadIdx.x].y, localMaxData[threadIdx.x].z);
+        std::printf("Axis %i min index: %d\n", axis, localMin[threadIdx.x]);
+        std::printf("Axis %i max index: %d\n", axis, localMax[threadIdx.x]);
     }
       
 }
@@ -294,15 +303,15 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
     std::cerr << "checked 1\n";
-    findExtremaKernel<<<1, threads>>>(pc, minX, maxX, 0);
+    findExtremaKernel<<<1, threads>>>(pc, blocks, minX, maxX, 0);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
     std::cerr << "checked 2\n";
-    findExtremaKernel<<<1, threads>>>(pc, minY, maxY, 1);
+    findExtremaKernel<<<1, threads>>>(pc, blocks, minY, maxY, 1);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
     std::cerr << "checked 3\n";
-    findExtremaKernel<<<1, threads>>>(pc, minZ, maxZ, 2);
+    findExtremaKernel<<<1, threads>>>(pc, blocks, minZ, maxZ, 2);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
     std::cerr << "checked 4\n";
