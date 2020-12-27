@@ -1,6 +1,9 @@
 #include "euclidean-cluster.hpp"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
+#include <thrust/sequence.h>
+#include <thrust/sort.h>
+#include <thrust/copy.h>
 #include "common.hpp"
 
 /*
@@ -117,9 +120,18 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
 }
 
 //this debug kernel colors points based on their label
-__global__ void colorClusters(GPU_Cloud_F4 pc, int* labels) {
+__global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* values) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
+
+    int i = 0;
+    while(true) {
+        if(labels[ptIdx] == keys[i]) {
+            if(values[i] < 60) return;
+            else break;
+        }
+        i++;
+    }
     
     float red = 3.57331108403e-43;
     float green = 9.14767637511e-41;
@@ -199,7 +211,22 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
         //get flag to see if we are done
         cudaMemcpy(&stillGoingCPU, stillGoing, sizeof(bool), cudaMemcpyDeviceToHost);
     }
-    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels);
+
+    
+    thrust::device_vector<int> labelsSorted(pc.size);
+    thrust::device_vector<int> count(pc.size, 1);
+    thrust::device_vector<int> keys(pc.size);
+    thrust::device_vector<int> values(pc.size);
+
+
+    thrust::copy(thrust::device, labels, labels+pc.size, labelsSorted.begin());
+    thrust::sort(thrust::device, labelsSorted.begin(), labelsSorted.end());
+    thrust::reduce_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), count.begin(), keys.begin(), values.begin());
+    int* gpuKeys = thrust::raw_pointer_cast( keys.data() );
+    int* gpuVals = thrust::raw_pointer_cast( values.data() );
+
+
+    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals);
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);
 }
