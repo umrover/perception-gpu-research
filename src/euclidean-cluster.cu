@@ -257,6 +257,7 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     int *maxY;
     int *minZ; 
     int *maxZ;
+
     checkStatus(cudaMalloc(&minX, sizeof(int) * blocks));
     checkStatus(cudaMalloc(&maxX, sizeof(int) * blocks));
     checkStatus(cudaMalloc(&minY, sizeof(int) * blocks));
@@ -283,6 +284,16 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     findExtremaKernel<<<1, threads>>>(pc, blocks, minZ, maxZ, 2);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
+
+    //Should print out 2,9,0,7,1,6
+
+    //Free memory
+    cudaFree(minX);
+    cudaFree(maxX);
+    cudaFree(minY);
+    cudaFree(maxY);
+    cudaFree(minZ);
+    cudaFree(maxZ);
 
 }
 /*

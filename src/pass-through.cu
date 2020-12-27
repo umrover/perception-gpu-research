@@ -81,4 +81,6 @@ void PassThrough::run(GPU_Cloud cloud){
     //Update size of cloud
     cloud.size() = *h_newSize;
 
+    cudaFree(d_newSize);
+
 }
