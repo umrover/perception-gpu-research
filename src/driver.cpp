@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
 
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
-    EuclideanClusterExtractor ece(520, 0, 0, tmp); //60/120
+    EuclideanClusterExtractor ece(520, 50, 0, tmp); //60/120
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 

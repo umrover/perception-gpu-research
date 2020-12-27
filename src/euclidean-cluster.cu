@@ -120,14 +120,19 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
 }
 
 //this debug kernel colors points based on their label
-__global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* values) {
+__global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* values, int minCloudSize) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
     int i = 0;
     while(true) {
         if(labels[ptIdx] == keys[i]) {
-            if(values[i] < 60) return;
+            if(values[i] < minCloudSize) {
+                pc.data[ptIdx].x = 0;
+                pc.data[ptIdx].y = 0;
+                pc.data[ptIdx].z = 0;
+                return;
+            }
             else break;
         }
         i++;
@@ -226,7 +231,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     int* gpuVals = thrust::raw_pointer_cast( values.data() );
 
 
-    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals);
+    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals, minSize);
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);
 }
