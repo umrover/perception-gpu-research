@@ -79,12 +79,12 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minXGlobal, int *max
         //Utilizes local arrays to keep track of values instead of hardcoded above
         while (aliveThreads > 0) {
             if (threadIdx.x < aliveThreads) {
-                minX = (data[localMinX[aliveThreads + threadIdx.x]].x < data[minX].x) ? aliveThreads + threadIdx.x : minX;
-                maxX = (data[localMaxX[aliveThreads + threadIdx.x]].x > data[maxX].x) ? aliveThreads + threadIdx.x : maxX;
-                minY = (data[localMinY[aliveThreads + threadIdx.x]].y < data[minY].y) ? aliveThreads + threadIdx.x : minY;
-                maxY = (data[localMaxY[aliveThreads + threadIdx.x]].y > data[maxY].y) ? aliveThreads + threadIdx.x : maxY;
-                minZ = (data[localMinZ[aliveThreads + threadIdx.x]].z < data[minZ].z) ? aliveThreads + threadIdx.x : minZ;
-                maxZ = (data[localMaxZ[aliveThreads + threadIdx.x]].z > data[maxZ].z) ? aliveThreads + threadIdx.x : maxZ;
+                minX = (data[localMinX[aliveThreads + threadIdx.x]].x < data[minX].x) ? localMinX[aliveThreads + threadIdx.x] : minX;
+                maxX = (data[localMaxX[aliveThreads + threadIdx.x]].x > data[maxX].x) ? localMaxX[aliveThreads + threadIdx.x] : maxX;
+                minY = (data[localMinY[aliveThreads + threadIdx.x]].y < data[minY].y) ? localMinY[aliveThreads + threadIdx.x] : minY;
+                maxY = (data[localMaxY[aliveThreads + threadIdx.x]].y > data[maxY].y) ? localMaxY[aliveThreads + threadIdx.x] : maxY;
+                minZ = (data[localMinZ[aliveThreads + threadIdx.x]].z < data[minZ].z) ? localMinZ[aliveThreads + threadIdx.x] : minZ;
+                maxZ = (data[localMaxZ[aliveThreads + threadIdx.x]].z > data[maxZ].z) ? localMaxZ[aliveThreads + threadIdx.x] : maxZ;
                 if (threadIdx.x >= (aliveThreads) / 2) {//Your going to die next iteration, so write to shared
                     localMinX[threadIdx.x] = minX;
                     localMaxX[threadIdx.x] = maxX;
@@ -237,6 +237,8 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, in
     if(threadIdx.x == 0){
         minGlobal[0] = localMin[threadIdx.x];
         maxGlobal[0] = localMax[threadIdx.x];
+        std::printf("Axis %i min index: %d\n", axis, localMin[threadIdx.x]);
+        std::printf("Axis %i max index: %d\n", axis, localMax[threadIdx.x]);
     }
       
 }
