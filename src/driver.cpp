@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     testcloud.size = testcloudsize;
     sl::float4 dataCPU[testcloudsize] = {
         sl::float4(0.1, 0, 0, 4545), 
-        sl::float4(10, 0, 0, 4545),
+        sl::float4(10, 0, -3, 4545),
         sl::float4(-10, 0, 0.4, 4545),
         sl::float4(0, 0, 10, 4545),
         sl::float4(10, 0, 10, 4545),

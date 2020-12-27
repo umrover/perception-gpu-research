@@ -25,7 +25,7 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minXGlobal, int *max
                                 int *minYGlobal, int *maxYGlobal, int *minZGlobal, int *maxZGlobal){
     //Would it be better to do multiple parallel reductions than one large memory consuming reduction?
     //This method makes 6 copies of the point cloud to find the necessary values 
-    const int threads = 16;
+    const int threads = 8;
     __shared__ int localMinX[threads/2];
     __shared__ int localMaxX[threads/2];
     __shared__ int localMinY[threads/2];
@@ -70,7 +70,7 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minXGlobal, int *max
             minY = (data[aliveThreads + threadIdx.x].y < data[minY].y) ? aliveThreads + threadIdx.x : minY;
             maxY = (data[aliveThreads + threadIdx.x].y > data[maxY].y) ? aliveThreads + threadIdx.x : maxY;
             minZ = (data[aliveThreads + threadIdx.x].z < data[minZ].z) ? aliveThreads + threadIdx.x : minZ;
-            minX = (data[aliveThreads + threadIdx.x].z > data[maxZ].z) ? aliveThreads + threadIdx.x : maxZ;
+            maxZ = (data[aliveThreads + threadIdx.x].z > data[maxZ].z) ? aliveThreads + threadIdx.x : maxZ;
             printf("(%d, %.1f) ", actualIndex, data[minX].x);
             if (threadIdx.x >= (aliveThreads) / 2) {//Your going to die next iteration, so write to shared
                 localMinX[threadIdx.x] = minX;
@@ -94,7 +94,7 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minXGlobal, int *max
                 minY = (data[localMinY[aliveThreads + threadIdx.x]].y < data[minY].y) ? aliveThreads + threadIdx.x : minY;
                 maxY = (data[localMaxY[aliveThreads + threadIdx.x]].y > data[maxY].y) ? aliveThreads + threadIdx.x : maxY;
                 minZ = (data[localMinZ[aliveThreads + threadIdx.x]].z < data[minZ].z) ? aliveThreads + threadIdx.x : minZ;
-                minX = (data[localMaxZ[aliveThreads + threadIdx.x]].z > data[maxZ].z) ? aliveThreads + threadIdx.x : maxZ;
+                maxZ = (data[localMaxZ[aliveThreads + threadIdx.x]].z > data[maxZ].z) ? aliveThreads + threadIdx.x : maxZ;
                 printf("(%d, %.1f) ", actualIndex, data[minX].x);
                 if (threadIdx.x >= (aliveThreads) / 2) {//Your going to die next iteration, so write to shared
                     localMinX[threadIdx.x] = minX;
@@ -183,9 +183,9 @@ __global__ void findBoundingBoxKernel(GPU_Cloud_F4 pc, int *minXGlobal, int *max
         maxYGlobal[blockIdx.x] = localMaxY[0] + blockDim.x*blockIdx.x;
         minZGlobal[blockIdx.x] = localMinZ[0] + blockDim.x*blockIdx.x;
         maxZGlobal[blockIdx.x] = localMaxZ[0] + blockDim.x*blockIdx.x;
-        printf("Smallest X: %.1f at %d\n", data[localMinX[0]].x, localMinX[0]);
-        printf("Smallest Y: %.1f at %d\n", data[localMinY[0]].y, localMinY[0]);
-        printf("Smallest Z: %.1f at %d\n", data[localMinZ[0]].z, localMinZ[0]);   
+        printf("Smallest X: %.1f at %d\n", data[localMinX[0]].x, localMinX[0]+blockDim.x*blockIdx.x);
+        printf("Smallest Y: %.1f at %d\n", data[localMinY[0]].y, localMinY[0]+blockDim.x*blockIdx.x);
+        printf("Smallest Z: %.1f at %d\n", data[localMinZ[0]].z, localMinZ[0]+blockDim.x*blockIdx.x);   
     }
     return;
 
@@ -200,10 +200,11 @@ and we have 2048 float4
 __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int *minGlobal, int *maxGlobal, int axis) {
     
     //Copy from global to shared memory
-    __shared__ int localMin[MAX_THREADS];
-    __shared__ int localMax[MAX_THREADS];
-    __shared__ sl::float4 localMinData[MAX_THREADS];
-    __shared__ sl::float4 localMaxData[MAX_THREADS];
+    const int threads = 8;
+    __shared__ int localMin[threads];
+    __shared__ int localMax[threads];
+    __shared__ sl::float4 localMinData[threads];
+    __shared__ sl::float4 localMaxData[threads];
     
     //Copy in all of the local data check for uninitialized values
     //Shouldn't cause warp divergence since the first set of contiguous
@@ -272,8 +273,8 @@ point cloud. Performs a function 6 times to find each point. The maximum pc size
 for this function is 1048576 since it assumes the resulting reduction fits into a block
 */
 void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
-    int blocks = ceilDiv(pc.size,MAX_THREADS);
-    int threads = 16;
+    const int threads = 8;
+    int blocks = ceilDiv(pc.size,threads);
     int *minX; //Stores max and min x,y,z values for each block in global memory
     int *maxX;
     int *minY; 
