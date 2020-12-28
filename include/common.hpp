@@ -43,6 +43,8 @@ GPU_Cloud_F4 createCloud(int size);
 
 void copyCloud(GPU_Cloud_F4 &to, GPU_Cloud_F4 &from);
 
+void clearStale(GPU_Cloud_F4 &cloud, int maxSize);
+
 
 //Remove all the points in cloud except those at the given indicies 
 GPU_Cloud removeAllExcept(GPU_Cloud pc, GPU_Indicies indicies);

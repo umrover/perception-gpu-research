@@ -37,7 +37,7 @@ __global__ void passThroughKernel(GPU_Cloud_F4 cloud, GPU_Cloud_F4 out, int axis
     ) {
         //cloud.data[idx].w = 4353.0;
         //zed viewer background
-        cloud.data[idx].w = VIEWER_BGR_COLOR;//2.35098856151e-38;
+        cloud.data[idx].w = 2.35098856151e-38; //VIEWER_BGR_COLOR;//
 
 
         return;

@@ -85,12 +85,28 @@ GPU_Cloud_F4 createCloud(int size) {
 
 __global__ void copyKernel(GPU_Cloud_F4 to, GPU_Cloud_F4 from) {
     int pointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+    if(pointIdx >= from.size) return;
     to.data[pointIdx] = from.data[pointIdx];
+}
+
+__global__ void removeJunkKernel(GPU_Cloud_F4 cloud, int start, int maxSize) {
+    int pointIdx = start + threadIdx.x + blockIdx.x * blockDim.x;
+    if(pointIdx >= maxSize) return;
+    cloud.data[pointIdx].x = 0;
+    cloud.data[pointIdx].y = 0;
+    cloud.data[pointIdx].z = 0;
+    cloud.data[pointIdx].w = VIEWER_BGR_COLOR;
+
 }
 
 void copyCloud(GPU_Cloud_F4 &to, GPU_Cloud_F4 &from) {
     to.size = from.size;
     copyKernel<<<ceilDiv(from.size, MAX_THREADS), MAX_THREADS>>>(to, from);
+    checkStatus(cudaDeviceSynchronize());
+}
+
+void clearStale(GPU_Cloud_F4 &cloud, int maxSize) {
+    removeJunkKernel<<<ceilDiv(maxSize-cloud.size, MAX_THREADS), MAX_THREADS>>>(cloud, cloud.size, maxSize);
     checkStatus(cudaDeviceSynchronize());
 }
 

@@ -339,19 +339,19 @@ __global__ void removeInliers(GPU_Cloud_F4 pc, GPU_Cloud_F4 out, int* optimalMod
         //int flag = (-1*abs(d - threshold)/(d - threshold) + 1 )/2;
         
         if(flag != 0) { //colors are ABGR in float space(LOL?????)
-            pc.data[pointIdx].w = VIEWER_BGR_COLOR;
+            pc.data[pointIdx].w = 2.35098856151e-38; //VIEWER_BGR_COLOR;
            // pc.data[pointIdx].x = 0;
            // pc.data[pointIdx].y = 0;
            // pc.data[pointIdx].z = 0;
         } else {
-            pc.data[pointIdx].w =  9.18340948595e-41;
+            //pc.data[pointIdx].w =  9.18340948595e-41;
             
             datum = pc.data[pointIdx];
             newIdx = atomicAdd(newSize, 1);
         }
     }
 
-    out.data[newIdx] = sl::float4(0, 0, 0, 0);//datum;
+    out.data[newIdx] = datum;
 
 }
 
