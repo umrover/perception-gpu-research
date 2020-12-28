@@ -124,6 +124,10 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* valu
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
+    //DEBUG STEP REMOVE
+    //pc.data[ptIdx].w = 9.18340948595e-41;
+    //return;
+
     int i = 0;
     while(true) {
         if(labels[ptIdx] == keys[i]) {

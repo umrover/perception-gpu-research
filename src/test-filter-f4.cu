@@ -14,7 +14,7 @@ __global__ void blueKernel(GPU_Cloud_F4 cloud) {
     
     //cloud.data[idx].w = 9932999;/// cloud.data[idx].norm();
     sl::float3 v3(cloud.data[idx]);
-    cloud.data[idx].w = v3.norm();
+    cloud.data[idx].w = 4353.0;//v3.norm();
     
 }
 

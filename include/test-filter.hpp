@@ -10,13 +10,12 @@ class TestFilter {
 
     public:
         //Initialized filter with point cloud
-        TestFilter(sl::Mat gpu_cloud);
+        TestFilter();
         
         //Run the filter
-        void run();
+        void run(GPU_Cloud_F4 pc);
 
-    private:
-        GPU_Cloud gpu_cloud;
+    
 
 };
 

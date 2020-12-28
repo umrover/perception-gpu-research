@@ -39,6 +39,10 @@ GPU_Cloud getRawCloud(sl::Mat zed_cloud);
 
 GPU_Cloud_F4 getRawCloud(sl::Mat zed_cloud, bool f4);
 
+GPU_Cloud_F4 createCloud(int size);
+
+void copyCloud(GPU_Cloud_F4 &to, GPU_Cloud_F4 &from);
+
 
 //Remove all the points in cloud except those at the given indicies 
 GPU_Cloud removeAllExcept(GPU_Cloud pc, GPU_Indicies indicies);

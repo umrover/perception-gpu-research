@@ -7,12 +7,18 @@
 #include "common.hpp"
 #include <Eigen/Dense>
 #include <chrono> 
-#include "test-filter-f4.hpp"
+#include "test-filter.hpp"
 #include "pcl.hpp"
 #include<unistd.h>
 #include <thread>
 #include "pass-through.hpp"
 #include "euclidean-cluster.hpp"
+
+
+#include <thrust/fill.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+
 
 using namespace std::chrono; 
 
@@ -106,7 +112,7 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        setPointCloud(k);
+        setPointCloud( 19);
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
@@ -127,33 +133,39 @@ int main(int argc, char** argv) {
         #endif
         
         //Run PassThrough Filter
-        /*
+        
+        cout << "[size] pre-pass-thru: " << pc_f4.size << endl;
+        
         auto passThroughStart = high_resolution_clock::now();
         passZ.run(pc_f4);
         //passY.run(pc_f4);
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
         cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
-        */
+        
        
         cout << "[size] pre-ransac: " << pc_f4.size << endl;
-        
+
         //Perform RANSAC Plane segmentation to find the ground
+        
         auto ransacStart = high_resolution_clock::now();
         RansacPlane::Plane planePoints = ransac.computeModel(pc_f4, true);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
-
-        cout << "[size] post-ransac: " << pc_f4.size << endl;
-
         
+        
+        cout << "[size] post-ransac: " << pc_f4.size << endl; 
+        TestFilter tf;
+        tf.run(pc_f4); 
+
+        /*
         auto eceStart = high_resolution_clock::now();
         ece.extractClusters(pc_f4);
         auto eceStop = high_resolution_clock::now();
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        */
         #ifndef USE_PCL
         viewer.isAvailable();
         #endif

@@ -74,6 +74,25 @@ GPU_Cloud_F4 getRawCloud(sl::Mat zed_cloud, bool f4) {
     return g;
 }
 
+GPU_Cloud_F4 createCloud(int size) {
+    GPU_Cloud_F4 g;
+    cudaMalloc(&g.data, sizeof(sl::float4)*size);
+    g.stride = 4;
+    g.size = size;
+    return g;
+}
+
+
+__global__ void copyKernel(GPU_Cloud_F4 to, GPU_Cloud_F4 from) {
+    int pointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+    to.data[pointIdx] = from.data[pointIdx];
+}
+
+void copyCloud(GPU_Cloud_F4 &to, GPU_Cloud_F4 &from) {
+    to.size = from.size;
+    copyKernel<<<ceilDiv(from.size, MAX_THREADS), MAX_THREADS>>>(to, from);
+    checkStatus(cudaDeviceSynchronize());
+}
 
 //void PclToZed();*/
 /*

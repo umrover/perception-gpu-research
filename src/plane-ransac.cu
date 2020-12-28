@@ -301,10 +301,15 @@ __global__ void computeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* mo
     }
 }
 
-__global__ void removeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* modelPoints, float threshold, sl::float3 axis, int* newSize) {
+__global__ void removeInliers(GPU_Cloud_F4 pc, GPU_Cloud_F4 out, int* optimalModelIndex, int* modelPoints, float threshold, sl::float3 axis, int* newSize) {
     if(*optimalModelIndex < 0) return;
 
     int pointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+
+    /*
+    if(pointIdx < pc.size) pc.data[pointIdx].w = 2.34184088514e-38;
+    *newSize = pc.size; //pc.size/2;
+    return;*/
 
     sl::float4 datum;
     int newIdx = pc.size-1;
@@ -338,16 +343,15 @@ __global__ void removeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* mod
            // pc.data[pointIdx].x = 0;
            // pc.data[pointIdx].y = 0;
            // pc.data[pointIdx].z = 0;
-           
-
         } else {
+            pc.data[pointIdx].w =  9.18340948595e-41;
+            
             datum = pc.data[pointIdx];
             newIdx = atomicAdd(newSize, 1);
         }
     }
-    
-    __syncthreads();
-    pc.data[newIdx] = datum;
+
+    out.data[newIdx] = sl::float4(0, 0, 0, 0);//datum;
 
 }
 
@@ -431,6 +435,8 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 pc) {
 }
 
 RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 &pc, bool flag) {
+    GPU_Cloud_F4 tmpCloud = createCloud(pc.size); //exp
+
     this->pc = pc;
 
     int blocks = iterations;
@@ -441,10 +447,13 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 &pc, bool flag) {
     int* size;
     cudaMalloc(&size, sizeof(int));
     cudaMemset(size, 0, sizeof(int));
-    removeInliers<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, optimalModelIndex, modelPoints, threshold, axis, size);
+    removeInliers<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tmpCloud, optimalModelIndex, modelPoints, threshold, axis, size);
     int sizeCpu;
     cudaMemcpy(&sizeCpu, size, sizeof(int), cudaMemcpyDeviceToHost);
-    pc.size = sizeCpu;
+    tmpCloud.size = sizeCpu;
+    copyCloud(pc, tmpCloud);
+    cudaFree(tmpCloud.data); //exp
+   // pc.size = 320/2*180/2;
     //std::cout << sizeCpu << std::endl;
     //might be able to use memcpyAsync() here, double check
     checkStatus(cudaGetLastError());

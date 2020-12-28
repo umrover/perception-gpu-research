@@ -17,7 +17,7 @@ PassThrough::PassThrough(char axis, float min, float max) : min{min}, max{max} {
 };
 
 //CUDA Kernel Helper Function
-__global__ void passThroughKernel(GPU_Cloud_F4 cloud, int axis, float min, float max, int* size) {
+__global__ void passThroughKernel(GPU_Cloud_F4 cloud, GPU_Cloud_F4 out, int axis, float min, float max, int* size) {
 
     //Find index for current operation
     int idx = threadIdx.x + blockIdx.x * BLOCK_SIZE;
@@ -53,11 +53,12 @@ __global__ void passThroughKernel(GPU_Cloud_F4 cloud, int axis, float min, float
     int place = atomicAdd(size, 1);
 
     //Copy back data into place in front of array
-    cloud.data[place] = copy;
+    out.data[place] = copy;
 
 }
 
 void PassThrough::run(GPU_Cloud_F4 &cloud){
+    GPU_Cloud_F4 tmpCloud = createCloud(cloud.size); //exp
 
     std::cerr << "Original size: " << cloud.size << "\n";
     
@@ -73,7 +74,7 @@ void PassThrough::run(GPU_Cloud_F4 &cloud){
     cudaMemcpy(d_newSize, h_newSize, sizeof(int), cudaMemcpyHostToDevice);
     
     //Run PassThrough Kernel
-    passThroughKernel<<<ceilDiv(cloud.size, BLOCK_SIZE), BLOCK_SIZE>>>(cloud, axis, min, max, d_newSize);
+    passThroughKernel<<<ceilDiv(cloud.size, BLOCK_SIZE), BLOCK_SIZE>>>(cloud, tmpCloud, axis, min, max, d_newSize);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
     
@@ -81,7 +82,10 @@ void PassThrough::run(GPU_Cloud_F4 &cloud){
     cudaMemcpy(h_newSize, d_newSize, sizeof(int), cudaMemcpyDeviceToHost);
     
     //Update size of cloud
-    cloud.size = *h_newSize;
+    tmpCloud.size = *h_newSize;
+    copyCloud(cloud, tmpCloud); //exp
+    cudaFree(tmpCloud.data); //exp
+
     std::cerr << "New Cloud Size: " << cloud.size << "\n";
 
     //Free dynamically allocated memory
