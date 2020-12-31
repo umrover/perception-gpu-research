@@ -171,7 +171,8 @@ provided list. Split into 3 blocks each calculating the max and min
 values for their given axis. Needed to divide it up since float4 = 16bytes
 and we have 2048 float4
 */
-__global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, int *maxGlobal, int axis) {
+__global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, int *maxGlobal, 
+    int *finalMin, int* finalMax, int axis) {
     
     //Copy from global to shared memory
     const int threads = MAX_THREADS;
@@ -235,10 +236,45 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, in
 
     //If final thread write to global memory
     if(threadIdx.x == 0){
-        minGlobal[0] = localMin[threadIdx.x];
-        maxGlobal[0] = localMax[threadIdx.x];
+        finalMin[axis] = localMin[threadIdx.x];
+        finalMax[axis] = localMax[threadIdx.x];
         std::printf("Axis %i min index: %d\n", axis, localMin[threadIdx.x]);
         std::printf("Axis %i max index: %d\n", axis, localMax[threadIdx.x]);
+        
+        //If the last axis calculated readjust so the values make a cube
+        if(axis == 2){
+            int difX = finalMax[0]-finalMin[0];
+            int difY = finalMax[1]-finalMin[1];
+            int difZ = finalMax[2]-finalMin[2];
+    
+            if(difZ > difY && difZ > difX) {
+                int addY = (difZ - difY)%2 ? (difZ-difY)/2+1 : (difZ-difY)/2;
+                int addX = (difZ - difX)%2 ? (difZ-difX)/2+1 : (difZ-difX)/2;
+                finalMax[0] += addX;
+                finalMin[0] -= addX;
+                finalMax[1] += addY;
+                finalMin[1] -= addY; 
+            }
+
+            else if(difY > difX && difY > difZ) {
+                int addZ = (difY - difZ)%2 ? (difY-difZ)/2+1 : (difY-difZ)/2;
+                int addX = (difY - difX)%2 ? (difY-difX)/2+1 : (difY-difX)/2;
+                finalMax[0] += addX;
+                finalMin[0] -= addX;
+                finalMax[2] += addZ;
+                finalMin[2] -= addZ;
+            }
+
+            else {
+                int addY = (difX - difY)%2 ? (difX-difY)/2+1 : (difX-difY)/2;
+                int addZ = (difY - difZ)%2 ? (difY-difZ)/2+1 : (difX-difZ)/2;
+                finalMax[2] += addZ;
+                finalMin[2] -= addZ;
+                finalMax[1] += addY;
+                finalMin[1] -= addY;
+            }
+
+        }
     }
       
 }
@@ -264,24 +300,26 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     checkStatus(cudaMalloc(&maxY, sizeof(int) * blocks));
     checkStatus(cudaMalloc(&minZ, sizeof(int) * blocks));
     checkStatus(cudaMalloc(&maxZ, sizeof(int) * blocks));
-    
+    checkStatus(cudaMalloc(&mins, sizeof(int) * 3));
+    checkStatus(cudaMalloc(&maxes, sizeof(int) * 3));
+
     //Find 6 bounding values for all blocks
     findBoundingBoxKernel<<<blocks,threads>>>(pc, minX, maxX, minY, maxY, minZ, maxZ); 
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
 
     //Find X extrema in remaining array
-    findExtremaKernel<<<1, threads>>>(pc, blocks, minX, maxX, 0);
+    findExtremaKernel<<<1, threads>>>(pc, blocks, minX, maxX, mins, maxes, 0);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
 
     //Find Y extrema in remaining array
-    findExtremaKernel<<<1, threads>>>(pc, blocks, minY, maxY, 1);
+    findExtremaKernel<<<1, threads>>>(pc, blocks, minY, maxY, mins, maxes, 1);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
 
     //Find Z extrema
-    findExtremaKernel<<<1, threads>>>(pc, blocks, minZ, maxZ, 2);
+    findExtremaKernel<<<1, threads>>>(pc, blocks, minZ, maxZ, mins, maxes, 2);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
 
@@ -296,6 +334,92 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     cudaFree(maxZ);
 
 }
+
+/*
+This kernel will use a hash function to determine which bin the point hashes into
+and will then atomically count the number of points to be added to the bin. 
+THERE IS DEFINITELY A BETTER WAY TO DO THIS STEP
+*/
+
+__global__ void buildBinsKernel(GPU_Cloud_F4 pc, int* binCount, int partitions, 
+                                        int* mins, int* maxes, int** bins) {
+    int ptIdx = threadIdx.x + blockDim.x * blockIdx.x;
+    if(ptIdx > pc.size) return;
+
+    //Copy Global to registry memory
+    sl::float4 data = pc.data[ptIdx];
+
+    //Use hash function to find bin number
+    int cpx = (data.x-min[0])/(max[0]-min[0])*partitions;
+    int cpy = (data.y-min[1])/(max[1]-min[1])*partitions;
+    int cpz = (data.z-min[2])/(max[2]-min[2])*partitions;
+    int binNum = cpx*partitions*partitions+cpy*partitions+cpz;
+
+    int place = atomicAdd(binCount[binNum],1);
+
+    __syncthreads();
+
+    //Dynamically allocate memory for bins in kernel. Memory must be freed
+    //in a different Kernel. It cannot be freed with cudaFree()
+    //By definition of the hash function there will be partitions^3 bins 
+    if(ptIdx < partitions*partitions*partitions)
+        bins[ptIdx] = (int*)malloc(sizeof(int)*binCount[ptIdx]);
+
+     // Check for failure
+    if (bins[ptIdx] == NULL)
+    return;
+
+    __syncthreads();
+
+    //Memory now exists, so write index to global memory
+    bins[binNum][place] = ptIdx;
+}
+
+__global__ void freeBinsKernel(int** bins, int partitions){
+    //If valid bin
+    if(ptIdx < partitions*partitions*partitions){
+        int* ptr = bins[ptIdx];
+        //If memory was allocated
+        if(ptr != NULL)
+            free(ptr);
+    }
+}
+
+
+/*
+This function builds the bins that are needed to prevent an O(n^2) search time
+for nearest neighbors. Uses min and max values to construct a cube that can be 
+divided up into a specified number of partitions on each axis. 
+*/
+void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
+    int threads = MAX_THREADS;
+    int blocks = ceilDiv(pc.size, threads);
+
+    //Allocate memory
+    checkStatus(cudaMalloc(&bins, sizeof(int*) * partitions*partitions*partitions));
+    checkStatus(cudaMalloc(&binCount, sizeof(int) * partitions*partitions*partitions));
+    
+    //Construct the bins to be used
+    buildBinsKernel<<<blocks, threads>>>(pc, binCount, partitions, mins, maxes, bins);
+    checkStatus(cudaGetLastError());
+    cudaDeviceSynchronize();
+}
+
+/*
+This function frees dynamically allocated memory in buildBins function
+*/
+void EuclideanClusterExtractor::freeBins() {
+    int threads = MAX_THREADS;
+    int blocks = ceilDiv(partitions*partitions*paritions, threads);
+
+    freeBinsKernel<<<blocks,threads>>>();
+    checkStatus(cudaGetLastError());
+    cudaDeviceSynchronize();
+
+    checkStatus(cudaFree(&bins));
+    checkStatus(cudaFree(&binCount));
+}
+
 /*
 This kernel determines the structure of the graph but does not build it
 In theory, there is a memory-compute trade off to be made here. This kernel
@@ -389,7 +513,7 @@ __global__ colorClusters(GPU_Cloud_F4 pc, int* labels) {
 }
 */
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize) 
-: tolerance(tolerance), minSize(minSize), maxSize(maxSize) {}
+: tolerance{tolerance}, minSize{minSize}, maxSize{maxSize}, partitions{partitions} {}
 /*
 EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
 
