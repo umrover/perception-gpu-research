@@ -47,5 +47,4 @@ class EuclideanClusterExtractor {
         int** bins; 
         int* binCount;
         int partitions;
-
 };
