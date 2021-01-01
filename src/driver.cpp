@@ -39,21 +39,23 @@ int main(int argc, char** argv) {
     cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
     testcloud.size = testcloudsize;
     sl::float4 dataCPU[testcloudsize] = {
-        sl::float4(0.1, -4.0001, 0, 4545), 
-        sl::float4(10, 0, -301234.6, 4545),
-        sl::float4(-20, 0, 0.4, 4545),
+        sl::float4(0.1, -15, 0, 4545), 
+        sl::float4(10, 0, -15, 4545),
+        sl::float4(-15, 0, 0.4, 4545),
         sl::float4(0, 0, 10, 4545),
         sl::float4(10, 0, 10, 4545),
         sl::float4(-10, 0, 10, 4545),
-        sl::float4(-5, 3, 40, 4545),
-        sl::float4(5, 9123, 5, 4545),
+        sl::float4(-5, 3, 15, 4545),
+        sl::float4(5, 15, 5, 4545),
         sl::float4(2, 5, 2, 4545),
-        sl::float4(49125, -4, 2, 4545),
+        sl::float4(15, -10, 2, 4545),
     };
     cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
 
-    EuclideanClusterExtractor fish(1.0,1,1.0);
+    EuclideanClusterExtractor fish(1.0,1,1.0,2);
     fish.findBoundingBox(testcloud);
+    fish.buildBins(testcloud);
+    fish.freeBins();
 
     
     /*

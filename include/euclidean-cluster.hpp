@@ -42,8 +42,8 @@ class EuclideanClusterExtractor {
         float tolerance;
         float minSize;
         float maxSize;
-        int* mins;
-        int* maxes;
+        float* mins;
+        float* maxes;
         int** bins; 
         int* binCount;
         int partitions;
