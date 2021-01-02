@@ -16,6 +16,14 @@ __device__ float getData(int axis, int index, sl::float4 *data) {
     return getFloatData(axis, data[index]);    
 }
 
+//Hash function that deteremines bin number
+__device__ int hashToBin(sl::float4 &data, float* min, float* max, int partitions) {
+    int cpx = (data.x-min[0])/(max[0]-min[0])*partitions;
+    int cpy = (data.y-min[1])/(max[1]-min[1])*partitions;
+    int cpz = (data.z-min[2])/(max[2]-min[2])*partitions;
+    return cpx*partitions*partitions+cpy*partitions+cpz;
+}
+
 
 /**
 This kernel uses parallel reduction to find the 6 maximum and minimum points
@@ -348,63 +356,54 @@ THERE IS DEFINITELY A BETTER WAY TO DO THIS STEP
 */
 
 __global__ void buildBinsKernel(GPU_Cloud_F4 pc, int* binCount, int partitions, 
-                                        float* min, float* max, int** bins) {
+                                        float* min, float* max, int** bins, int* memo) {
     
-    if(threadIdx.x == 0)
-    printf("%i\n", binCount[0]);
     int ptIdx = threadIdx.x + blockDim.x * blockIdx.x;
     if(ptIdx >= pc.size) return;
 
     //Copy Global to registry memory
     sl::float4 data = pc.data[ptIdx];
-    if(threadIdx.x == 0)
-        printf("minX: %.1f, maxX: %.1f, minY: %.1f, maxY: %.1f, minZ: %.1f, maxZ: %.1f\n", min[0], max[0], min[1], max[1], min[2], max[2]);
-    __syncthreads();
-    //Use hash function to find bin number
-    int cpx = (data.x-min[0])/(max[0]-min[0])*partitions;
-    int cpy = (data.y-min[1])/(max[1]-min[1])*partitions;
-    int cpz = (data.z-min[2])/(max[2]-min[2])*partitions;
-    int binNum = cpx*partitions*partitions+cpy*partitions+cpz;
-    if(threadIdx.x == 3)
-    printf("%i, %i, %i\n", cpx, cpy, cpz);
+
+    int binNum = hashToBin(data, min, max, partitions);
     
     printf("(%i, %i)", ptIdx, binNum);
     __syncthreads();
-    if(threadIdx.x == 0)
-        printf("%i\n", binCount[0]);
-
-    int place = atomicAdd(&binCount[binNum],1);
-    if(threadIdx.x == 0)
-        printf("%i\n", binCount[0]);
-    printf("(%i, %i)", ptIdx, place);
+    if(ptIdx == 0) {
+        printf("\n");
+    }
+    
     __syncthreads();
-    if(threadIdx.x == 0)
-        printf("hello\n");
-    else
-        printf("foo\n");
+
+    //Find total number of elements in each bin
+    int place = atomicAdd(&binCount[binNum],1);
+    
+    printf("(%i, %i)*", ptIdx, place);
+    __syncthreads();
+    if(ptIdx == 0)
+    printf("\n");
 
     //Dynamically allocate memory for bins in kernel. Memory must be freed
     //in a different Kernel. It cannot be freed with cudaFree()
     //By definition of the hash function there will be partitions^3 bins 
-    if(ptIdx < partitions*partitions*partitions){
+    if(ptIdx < partitions*partitions*partitions) {
         bins[ptIdx] = (int*)malloc(sizeof(int)*(binCount[ptIdx]));
-        
-        
     }
-    printf("%i, ", ptIdx);
-     // Check for failure
-    //if (ptIdx < partitions*partitions*partitions && bins[ptIdx] == NULL)
-    //return;
+     
+    //Make intermediary step to write to global memory. Could avoid this by syncing
+    //all blocks
+    memo[3*ptIdx] = ptIdx;
+    memo[3*ptIdx+1] = binNum;
+    memo[3*ptIdx+2] = place;
+}
 
-    __syncthreads();
-                                       
+__global__ void assignBinsKernel(int size, int** bins, int* memo) {
+    int ptIdx = threadIdx.x + blockDim.x * blockIdx.x;
+    if(ptIdx >= size) return;
+
     //Memory now exists, so write index to global memory
-    bins[binNum][place] = ptIdx;
+    bins[memo[3*ptIdx+1]][memo[3*ptIdx+2]] = memo[3*ptIdx];
 
-    if(ptIdx <= pc.size){
-    printf("(%i, %i, %i), ", binNum, place, bins[binNum][place]);
-    }
-    __syncthreads();
+    printf("(%i, %i, %i), ", memo[3*ptIdx+1], memo[3*ptIdx+2], bins[memo[3*ptIdx+1]][memo[3*ptIdx+2]]);
 }
 
 __global__ void freeBinsKernel(int* binCount, int** bins, int partitions){
@@ -432,15 +431,29 @@ divided up into a specified number of partitions on each axis.
 void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
     int threads = 2;
     int blocks = ceilDiv(pc.size, threads);
+    int* memo;
     
     //Allocate memory
     checkStatus(cudaMalloc(&bins, sizeof(int*) * partitions*partitions*partitions));
     checkStatus(cudaMalloc(&binCount, sizeof(int) * partitions*partitions*partitions));
+    checkStatus(cudaMalloc(&memo, sizeof(int) * 3 * pc.size));
     
     //Construct the bins to be used
-    buildBinsKernel<<<blocks, threads>>>(pc, binCount, partitions, mins, maxes, bins);
+    buildBinsKernel<<<blocks, threads>>>(pc, binCount, partitions, mins, maxes, bins, memo);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
+
+    //Assign values to the created bin structure
+    assignBinsKernel<<<blocks, threads>>>(pc.size, bins, memo);
+    checkStatus(cudaGetLastError());
+    cudaDeviceSynchronize();
+
+    //Should print something like (5, 0, 0), (6, 0, 1), (3, 0, 2), (7, 0, 3), (0, 0, 4), (3, 1, 5), (1, 0, 6), (2, 0, 7), (6, 1, 8), (1, 1, 9)
+    //Don't worry if middle number differs
+
+    //Free memory
+    checkStatus(cudaFree(memo));
+
     std::cerr << "buildBins working\n";
 }
 
