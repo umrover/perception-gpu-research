@@ -246,8 +246,8 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, in
     if(threadIdx.x == 0){
         finalMin[axis] = getFloatData(axis, minData);
         finalMax[axis] = getFloatData(axis, maxData);
-        std::printf("Axis %i min index: %.1f\n", axis, getFloatData(axis, localMinData[threadIdx.x]));
-        std::printf("Axis %i max index: %.1f\n", axis, getFloatData(axis, localMaxData[threadIdx.x]));
+        //std::printf("Axis %i min index: %.1f\n", axis, getFloatData(axis, localMinData[threadIdx.x]));
+        //std::printf("Axis %i max index: %.1f\n", axis, getFloatData(axis, localMaxData[threadIdx.x]));
         
         //If the last axis calculated readjust so the values make a cube
         if(axis == 2){
@@ -267,8 +267,8 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, in
             }
 
             else if(difY >= difX && difY >= difZ) {
-                float addZ = (difY-difZ)/2;
-                float addX = (difY-difX)/2;
+                float addZ = (difY-difZ)/2+1;
+                float addX = (difY-difX)/2+1;
                 finalMax[0] += addX;
                 finalMin[0] -= addX;
                 finalMax[2] += addZ;
@@ -366,21 +366,12 @@ __global__ void buildBinsKernel(GPU_Cloud_F4 pc, int* binCount, int partitions,
 
     int binNum = hashToBin(data, min, max, partitions);
     
-    printf("(%i, %i)", ptIdx, binNum);
-    __syncthreads();
-    if(ptIdx == 0) {
-        printf("\n");
-    }
-    
-    __syncthreads();
+    //printf("(%i, %i)", ptIdx, binNum);
 
     //Find total number of elements in each bin
     int place = atomicAdd(&binCount[binNum],1);
     
-    printf("(%i, %i)*", ptIdx, place);
-    __syncthreads();
-    if(ptIdx == 0)
-    printf("\n");
+    //printf("(%i, %i)*", ptIdx, place);
 
     //Dynamically allocate memory for bins in kernel. Memory must be freed
     //in a different Kernel. It cannot be freed with cudaFree()
@@ -403,15 +394,12 @@ __global__ void assignBinsKernel(int size, int** bins, int* memo) {
     //Memory now exists, so write index to global memory
     bins[memo[3*ptIdx+1]][memo[3*ptIdx+2]] = memo[3*ptIdx];
 
-    printf("(%i, %i, %i), ", memo[3*ptIdx+1], memo[3*ptIdx+2], bins[memo[3*ptIdx+1]][memo[3*ptIdx+2]]);
+    //printf("(%i, %i, %i), ", memo[3*ptIdx+1], memo[3*ptIdx+2], bins[memo[3*ptIdx+1]][memo[3*ptIdx+2]]);
 }
 
 __global__ void freeBinsKernel(int* binCount, int** bins, int partitions){
     
     int ptIdx = threadIdx.x + blockDim.x * blockIdx.x;
-
-    if(threadIdx.x == 0)
-    printf("%i\n", binCount[0]);
 
     //If valid bin
     if(ptIdx < partitions*partitions*partitions){
@@ -453,8 +441,6 @@ void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
 
     //Free memory
     checkStatus(cudaFree(memo));
-
-    std::cerr << "buildBins working\n";
 }
 
 /*
@@ -470,8 +456,6 @@ void EuclideanClusterExtractor::freeBins() {
 
     checkStatus(cudaFree(binCount));
     checkStatus(cudaFree(bins));
-    std::cerr << "Everythying freed\n";
-    
 }
 
 /*
