@@ -323,7 +323,7 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     findBoundingBoxKernel<<<blocks,threads>>>(pc, minX, maxX, minY, maxY, minZ, maxZ); 
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
-    std::cerr<<"Check\n";
+
     //Find X extrema in remaining array
     findExtremaKernel<<<1, threads>>>(pc, blocks, minX, maxX, mins, maxes, 0);
     checkStatus(cudaGetLastError());
@@ -373,38 +373,25 @@ __global__ void buildBinsKernel(GPU_Cloud_F4 pc, int* binCount, int partitions,
     sl::float4 data = pc.data[ptIdx];
 
     int binNum = hashToBin(data, min, max, partitions);
-    
-    printf("(%i, %i)", ptIdx, binNum);
-    __syncthreads();
-    if(threadIdx.x == 0) {
-        printf("Check1\n\n");
-    }
 
     //Find total number of elements in each bin
     int place = atomicAdd(&binCount[binNum],1);
-    __syncthreads();
-    printf("(%i, %i)*", ptIdx, binCount[binNum]);
-    __syncthreads();
-    if(threadIdx.x == 0) {
-        printf("Check2\n\n");
-    }
-    //Dynamically allocate memory for bins in kernel. Memory must be freed
-    //in a different Kernel. It cannot be freed with cudaFree()
-    //By definition of the hash function there will be partitions^3 bins 
-    if(ptIdx < partitions*partitions*partitions) {
-        bins[ptIdx] = (int*)malloc(sizeof(int)*(binCount[ptIdx]));
-    }
-    if(threadIdx.x == 0) {
-        printf("Check3\n");
-    }
+   
     //Make intermediary step to write to global memory. Could avoid this by syncing
     //all blocks
     memo[3*ptIdx] = ptIdx;
     memo[3*ptIdx+1] = binNum;
     memo[3*ptIdx+2] = place;
-    
-    if(threadIdx.x == 0) {
-        printf("Check4\n");
+}
+
+__global__ void mallocBinsKernel(int partitions, int** bins, int* binCount) {
+    int ptIdx = threadIdx.x + blockDim.x * blockIdx.x;
+
+    //Dynamically allocate memory for bins in kernel. Memory must be freed
+    //in a different Kernel. It cannot be freed with cudaFree()
+    //By definition of the hash function there will be partitions^3 bins 
+    if(ptIdx < partitions*partitions*partitions) {
+        bins[ptIdx] = (int*)malloc(sizeof(int)*(binCount[ptIdx]));
     }
 }
 
@@ -440,7 +427,6 @@ divided up into a specified number of partitions on each axis.
 void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
     int threads = MAX_THREADS;
     int blocks = ceilDiv(pc.size, threads);
-    std::cerr << "Number of blocks: " << blocks << "\n";
     int* memo;
     
     //Allocate memory
@@ -458,7 +444,14 @@ void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
 
+    //Allocates appropriate memory for bins
+    //Used because couldn't figure out how to sync blocks
+    mallocBinsKernel<<<ceilDiv(partitions*partitions*partitions, threads), threads>>>(partitions, bins, binCount);
+    checkStatus(cudaGetLastError());
+    cudaDeviceSynchronize();
+
     //Assign values to the created bin structure
+    //Used because couldn't figure out how to sync blocks
     assignBinsKernel<<<blocks, threads>>>(pc.size, bins, memo);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
@@ -468,7 +461,6 @@ void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
 
     //Free memory
     checkStatus(cudaFree(memo));
-    std::cerr << "Bins built\n";
 }
 
 /*
@@ -648,7 +640,6 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
     //Nearest Neighbor Bins
     checkStatus(cudaMalloc(&mins, sizeof(int) * 3));
     checkStatus(cudaMalloc(&maxes, sizeof(int) * 3));
-    std::cerr<<"Vals initialized\n";
 
    // colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, nullptr);
 }

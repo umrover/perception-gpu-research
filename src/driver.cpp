@@ -27,7 +27,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -112,16 +112,11 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        std::cerr <<"Take 2?\n";
         setPointCloud(k);
-        std::cerr <<"Take 2?\n";
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
-        std::cerr <<"Take 2?\n";
         pclToZed(pclTest, pc_pcl);
-        std::cerr <<"Take 2?\n";
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
         #endif
-        std::cerr <<"Take 2?\n";
         //Grab cloud from the Zed camera
         
         #ifndef USE_PCL
