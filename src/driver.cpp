@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
-    EuclideanClusterExtractor ece(520, 50, 0, tmp); //60/120
+    EuclideanClusterExtractor ece(520, 50, 0, tmp, 4); //60/120
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -112,12 +112,16 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
+        std::cerr <<"Take 2?\n";
         setPointCloud(k);
+        std::cerr <<"Take 2?\n";
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
+        std::cerr <<"Take 2?\n";
         pclToZed(pclTest, pc_pcl);
+        std::cerr <<"Take 2?\n";
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
         #endif
-
+        std::cerr <<"Take 2?\n";
         //Grab cloud from the Zed camera
         
         #ifndef USE_PCL
@@ -160,7 +164,10 @@ int main(int argc, char** argv) {
 
         
         auto eceStart = high_resolution_clock::now();
+        ece.findBoundingBox(pc_f4);
+        ece.buildBins(pc_f4);
         ece.extractClusters(pc_f4);
+        ece.freeBins();
         auto eceStop = high_resolution_clock::now();
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 

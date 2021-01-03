@@ -89,9 +89,10 @@ void setPointCloud(int i) {
  	std::string full_path = PCD_FOLDER + std::string("/") + pcd_name;
 	cout << "[" << i << "] " << "Loading " << full_path << endl;
   	if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (full_path, *pc) == -1){ //* load the file 
-    	PCL_ERROR ("Couldn't read file test_pcd.pcd \n"); 
+    	std::cerr << "Couldn't read file\n";
+		PCL_ERROR ("Couldn't read file test_pcd.pcd \n"); 
   	}
-	cout << "> Loaded point cloud of " << pc->width << "*" << pc->height << endl;
+	cerr << "> Loaded point cloud of " << pc->width << "*" << pc->height << endl;
 	DownsampleFilter();
 	cout << "Post-downsample: " << pc->width << "*" << pc->height << endl;
 }
