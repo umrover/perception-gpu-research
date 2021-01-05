@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
 
         cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
 
-         std::this_thread::sleep_for(0.2s);
+        std::this_thread::sleep_for(0.2s);
     }
     gpu_cloud.free();
     zed.close(); 

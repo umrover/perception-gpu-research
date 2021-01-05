@@ -1,6 +1,8 @@
 #include "euclidean-cluster.hpp"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/copy.h>
@@ -312,6 +314,7 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     int *minZ; 
     int *maxZ;
 
+    std::cerr << "Find bound\n";
     checkStatus(cudaMalloc(&minX, sizeof(int) * blocks));
     checkStatus(cudaMalloc(&maxX, sizeof(int) * blocks));
     checkStatus(cudaMalloc(&minY, sizeof(int) * blocks));
@@ -348,6 +351,7 @@ void EuclideanClusterExtractor::findBoundingBox(GPU_Cloud_F4 &pc){
     cudaFree(maxY);
     cudaFree(minZ);
     cudaFree(maxZ);
+    std::cerr <<"Find bound complete\n";
 
 }
 __global__ void zeroBinsKernel(int* binCount, int partitions) {
@@ -428,6 +432,7 @@ void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
     int threads = MAX_THREADS;
     int blocks = ceilDiv(pc.size, threads);
     int* memo;
+    std::cerr << "buildBins\n";
     
     //Allocate memory
     checkStatus(cudaMalloc(&bins, sizeof(int*) * partitions*partitions*partitions));
@@ -438,29 +443,30 @@ void EuclideanClusterExtractor::buildBins(GPU_Cloud_F4 &pc) {
     zeroBinsKernel<<<ceilDiv(partitions*partitions*partitions, threads), threads>>>(binCount, partitions);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
-
+    std::cerr << "Zero complete\n";
     //Construct the bins to be used
     buildBinsKernel<<<blocks, threads>>>(pc, binCount, partitions, mins, maxes, bins, memo);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
-
+    std::cerr<< "binCount Assigned\n";
     //Allocates appropriate memory for bins
     //Used because couldn't figure out how to sync blocks
     mallocBinsKernel<<<ceilDiv(partitions*partitions*partitions, threads), threads>>>(partitions, bins, binCount);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
-
+    std::cerr << "bins added\n";
     //Assign values to the created bin structure
     //Used because couldn't figure out how to sync blocks
     assignBinsKernel<<<blocks, threads>>>(pc.size, bins, memo);
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
-
+    std::cerr <<"bins assigned\n";
     //Should print something like (5, 0, 0), (6, 0, 1), (3, 0, 2), (7, 0, 3), (0, 0, 4), (3, 1, 5), (1, 0, 6), (2, 0, 7), (6, 1, 8), (1, 1, 9)
     //Don't worry if middle number differs
 
     //Free memory
     checkStatus(cudaFree(memo));
+    std::cerr <<"Bins built\n";
 }
 
 /*
@@ -476,6 +482,30 @@ void EuclideanClusterExtractor::freeBins() {
 
     checkStatus(cudaFree(binCount));
     checkStatus(cudaFree(bins));
+    std::cerr << "Bins freed\n";
+}
+
+__device__ void findEdgePtsOfRadius (sl::float4 &startBinPt, sl::float4 &xBoundPt, sl::float4 &yBoundPt, 
+                                    sl::float4 &zBoundPt, int tolerance) {
+    //Start Bin
+    startBinPt -= tolerance;
+    startBinPt -= tolerance;
+    startBinPt -= tolerance; 
+    
+    //X Edge
+    xBoundPt.z -= tolerance;
+    xBoundPt.y -= tolerance;
+    xBoundPt.x += tolerance; 
+    
+    //Y Edge
+    yBoundPt.z -= tolerance;
+    yBoundPt.y += tolerance;
+    yBoundPt.x -= tolerance;                                             
+    
+    //Z Edge
+    yBoundPt.z += tolerance;
+    yBoundPt.y -= tolerance;
+    yBoundPt.x -= tolerance;                                             
 }
 
 /*
@@ -486,23 +516,69 @@ point can have the entire dataset amount of neighbors. Perhaps we can
 explore this allocation method instead.
 */
 //b: enough, t: each point
-__global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* listStart) {
+__global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* listStart, int** bins,
+                                            float* mins, float* maxes, int partitions) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
     sl::float3 pt = pc.data[ptIdx];
     int neighborCount = 0;
-    
-    //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
-    for(int i = 0; i < pc.size; i++) {
-        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
-        //this is a neighbor
-        if( dvec.norm() < tolerance && i != ptIdx) {
-            neighborCount++;
+
+    //Initialize edge vars
+    sl::float4 startBinPt = pc.data[ptIdx], xBoundPt = startBinPt, 
+    yBoundPt = startBinPt, zBoundPt = startBinPt;
+
+    findEdgePtsOfRadius(startBinPt, xBoundPt, yBoundPt, zBoundPt, tolerance);
+
+    //Find Edge Bins
+    int xStartBin = hashToBin(startBinPt, mins, maxes, partitions);
+    int xBoundBin = hashToBin(xBoundPt, mins, maxes, partitions);
+    int yBoundBin = hashToBin(yBoundPt, mins, maxes, partitions);
+    int zBoundBin = hashToBin(zBoundPt, mins, maxes, partitions);
+
+    int yStartBin = xStartBin, zStartBin = xStartBin;
+
+    const int totalBins = (zBoundBin-xStartBin+1) * ((yBoundBin-xStartBin)/partitions+1) *
+                    ((xBoundBin-xStartBin)/(partitions*partitions)+1);
+
+    int* binsToSearch = (int*)malloc(sizeof(int)*totalBins);
+
+    /*
+    The bin one away from currBin in Z direction is binNum +-1
+    The bin one away from currBin in Y direction is binNum +-partitions
+    The bin one away from currBin in X direction is binNum +-partitions^2
+    */
+    //Start at lower left, iterate left to right, bottom to top, front to back
+    //Iterate front to back
+    int binAdded = 0;
+    for(int i = zStartBin; i <= zBoundBin; i += 1) {
+        //Iterate bottom to top
+        for(int j = yStartBin; j <= yBoundBin; j += partitions) {
+            //Iterate left to right
+            for(int k = xStartBin; k <= xBoundBin; k+=partitions*partitions){
+                binsToSearch[binAdded] = k;
+            }
+            xBoundBin += partitions; //Shift xBoundBin up
+            xStartBin += partitions; //Shift startBin up
+        }
+        yBoundBin += 1; //Shift yBoundBin forward
+        yStartBin += 1; //Shift yStartBin forward
+    }
+
+    //Iterate through points in bins to search and check if they are within the radius of the point
+    for(size_t i = 0; i < totalBins; ++i){
+        for(int j = 0; bins[binsToSearch[i]][j] != NULL; ++j){
+            sl::float3 dvec = (pt - sl::float3(pc.data[i]));
+            //this is a neighbor
+            if( dvec.norm() < tolerance && i != ptIdx) {
+                neighborCount++;
+            }
         }
     }
-    listStart[ptIdx] = neighborCount;
 
+    listStart[ptIdx] = neighborCount;
+    
+    free(binsToSearch);
     //we must do an exclusive scan using thrust after this kernel
     //printf("%d: %d \n",ptIdx, neighborCount );
 }
@@ -511,7 +587,8 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
 /* This kernel builds the graph 
 Fairly standard adjacency list structure. 
 */
-__global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2) {
+__global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, 
+                            int** bins, float* mins, float* maxes, int partitions) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
@@ -520,20 +597,63 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
     //get the adjacency list for this point
     int* list = neighborLists + listStart[ptIdx];
     
-    //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
-    for(int i = 0; i < pc.size; i++) {
+     //Initialize edge vars
+     sl::float4 startBinPt = pc.data[ptIdx], xBoundPt = startBinPt, 
+     yBoundPt = startBinPt, zBoundPt = startBinPt;
+ 
+     findEdgePtsOfRadius(startBinPt, xBoundPt, yBoundPt, zBoundPt, tolerance);
+ 
+     //Find Edge Bins
+     int xStartBin = hashToBin(startBinPt, mins, maxes, partitions);
+     int xBoundBin = hashToBin(xBoundPt, mins, maxes, partitions);
+     int yBoundBin = hashToBin(yBoundPt, mins, maxes, partitions);
+     int zBoundBin = hashToBin(zBoundPt, mins, maxes, partitions);
+ 
+     int yStartBin = xStartBin, zStartBin = xStartBin;
 
-        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
-        //this is a neighbor
-        if( dvec.norm() < tolerance && i != ptIdx) {
-            list[neighborCount] = i;
-            neighborCount++;
-        }
-    }
-    
+    const int totalBins = (zBoundBin-xStartBin+1) * ((yBoundBin-xStartBin)/partitions+1) *
+                    ((xBoundBin-xStartBin)/(partitions*partitions)+1);
+
+    int* binsToSearch = (int*)malloc(sizeof(int)*totalBins);
+
+     /*
+     The bin one away from currBin in Z direction is binNum +-1
+     The bin one away from currBin in Y direction is binNum +-partitions
+     The bin one away from currBin in X direction is binNum +-partitions^2
+     */
+     //Start at lower left, iterate left to right, bottom to top, front to back
+     int binAdded = 0;
+     //Iterate front to back
+     for(int i = zStartBin; i <= zBoundBin; i += 1) {
+         //Iterate bottom to top
+         for(int j = yStartBin; j <= yBoundBin; j += partitions) {
+             //Iterate left to right
+             for(int k = xStartBin; k <= xBoundBin; k+=partitions*partitions){
+                 binsToSearch[binAdded] = k;
+             }
+             xBoundBin += partitions; //Shift xBoundBin up
+             xStartBin += partitions; //Shift startBin up
+         }
+         yBoundBin += 1; //Shift yBoundBin forward
+         yStartBin += 1; //Shift yStartBin forward
+     }
+ 
+     //Iterate through points in bins to search and check if they are within the radius of the point
+     for(size_t i = 0; i < totalBins; ++i){
+         for(int j = 0; bins[binsToSearch[i]][j] != NULL; ++j){
+             sl::float3 dvec = (pt - sl::float3(pc.data[i]));
+             //this is a neighbor
+             if( dvec.norm() < tolerance && i != ptIdx) {
+                list[neighborCount] = i; 
+                neighborCount++;
+             }
+         }
+     }
+
     labels[ptIdx] = ptIdx;
     f1[ptIdx] = true;
     f2[ptIdx] = false;
+    free(binsToSearch);
 }
 
 /*
@@ -650,7 +770,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //set frontier arrays appropriately [done in build graph]
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
-    determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart);
+    determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, mins, maxes, partitions);
     thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
     checkStatus(cudaDeviceSynchronize());
     int totalAdjanecyListsSize;
@@ -661,7 +781,8 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
     
     cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
-    buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
+    buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
+                                        bins, mins, maxes, partitions);
     checkStatus(cudaDeviceSynchronize());
 
     //int* temp2 = (int*) malloc(sizeof(int)*(totalAdjanecyListsSize));
