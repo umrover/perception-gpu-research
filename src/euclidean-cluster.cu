@@ -705,7 +705,7 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
             
             //this is a neighbor
             if( dvec.norm() < tolerance && bins[binsToSearch[i]][j] != ptIdx) {
-                list[neighborCount] = i; 
+                list[neighborCount] = bins[binsToSearch[i]][j]; 
                 neighborCount++;
                 if(ptIdx == revPt){
                     printf("Added neighbor\n");
@@ -735,6 +735,16 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
+    if(ptIdx == 0){
+        for(int i = 0; i < 10; i++){
+            printf("Pt %i: ", i);
+            for(int j = listStart[i]; j < listStart[i+1]; ++j){
+                printf("%i, ", neighborLists[j]);
+            }
+            printf("\n");    
+        }
+        
+    }
     //debug lines
    // if(threadIdx.x == 0) *m = false;
    // __syncthreads();
