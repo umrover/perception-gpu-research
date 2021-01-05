@@ -1,4 +1,3 @@
-
 #include <sl/Camera.hpp>
 #include "GLViewer.hpp"
 //#include "test-filter.hpp"
@@ -41,7 +40,7 @@ void spinZedViewer() {
 }
 
 int main(int argc, char** argv) {  
-    
+    /*
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
     
@@ -52,12 +51,10 @@ int main(int argc, char** argv) {
     // init viewer
     auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
     GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
-
     //This is a cloud with data stored in GPU memory that can be acessed from CUDA kernels
     sl::Mat gpu_cloud (cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
     int pcSize = cloud_res.area(); 
     cout << "Point clouds are of size: " << pcSize << endl;
-
     //Pass Through Filter
     PassThrough passZ('z', 200.0, 7000.0); //This probly won't do much since range so large
    // PassThrough passY('y', 100.0, 600.0); 
@@ -71,45 +68,45 @@ int main(int argc, char** argv) {
 	readData(); //Load the pcd file names into pcd_names
 	setPointCloud(5); //Set the first point cloud to be the first of the files
     pclViewer = createRGBVisualizer(pc_pcl);
-
     #ifdef USE_PCL
     //slows down performance of all GPU functions since running in parallel with them
     thread zedViewerThread(spinZedViewer);
     #endif
-
+    */
 
     //Temporary DEBUG model:
-    /*
-    int testcloudsize = 8;
+    
+    //Create a point synthetic point cloud
+    int testcloudsize = 10;
     GPU_Cloud_F4 testcloud;
-    //cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
-    //testcloud.size = testcloudsize;
-    sl::float4 dataCPU[testcloudsize] = {
-        sl::float4(100, 0, 100, 4545), //0
-        sl::float4(-100, 0, 100, 4545), //1
-        sl::float4(0, 0, 100, 4545), //2
-        sl::float4(100, 100, 100, 4545), //3
-        sl::float4(-100, 100, 100, 4545), //4
-        sl::float4(-400, 100, 400, 4545), //5
-        sl::float4(-420, 100, 400, 4545), //6
-        sl::float4(400, 100, 400, 4545), //7
-    };
-    sl::Mat testcloudmat(cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
-    for(int i = 0; i < testcloudsize; i++) testcloudmat.setValue(i, 0, dataCPU[i], sl::MEM::GPU);
-    //cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
-    testcloud = getRawCloud(testcloudmat, true);
+    cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
     testcloud.size = testcloudsize;
-    EuclideanClusterExtractor ece(110, 0, 0, testcloud);
-    ece.extractClusters(testcloud);*/
-
+    sl::float4 dataCPU[testcloudsize] = {
+        sl::float4(0, 0, 1, 4545), 
+        sl::float4(0, 0, -15, 4545),
+        sl::float4(-15, 0, 0, 4545),
+        sl::float4(15, -15, 6, 4545),
+        sl::float4(1, 1, -1, 4545),
+        sl::float4(-15, 15, 15, 4545),
+        sl::float4(-15, -15, 15, 4545),
+        sl::float4(-15, 15, -15, 4545),
+        sl::float4(15, 15, -15, 4545),
+        sl::float4(-15, -15, 15, 4545),
+    };
+    cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
+    
+    EuclideanClusterExtractor ece(5, 0, 0, testcloud, 2);
+    ece.findBoundingBox(testcloud);
+    ece.buildBins(testcloud);
+    ece.extractClusters(testcloud);
+    ece.freeBins();
+    /*
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
     EuclideanClusterExtractor ece(520, 50, 0, tmp, 4); //60/120
-
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
-
         //Grab cloud from PCD file
         #ifdef USE_PCL 
         setPointCloud(k);
@@ -153,10 +150,8 @@ int main(int argc, char** argv) {
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
         cout << "[size] post-ransac: " << pc_f4.size << endl; 
         clearStale(pc_f4, 320/2*180/2);
-
         //TestFilter tf;
         //tf.run(pc_f4); 
-
         
         auto eceStart = high_resolution_clock::now();
         ece.findBoundingBox(pc_f4);
@@ -170,10 +165,8 @@ int main(int argc, char** argv) {
         #ifndef USE_PCL
         viewer.isAvailable();
         #endif
-
         //PCL viewer
         
-
         //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
         ZedToPcl(pc_pcl, pclTest);
@@ -183,22 +176,18 @@ int main(int argc, char** argv) {
        // usleep(microsecond);
         viewer.updatePointCloud(pclTest);
         #endif
-
-
         //ZED sdk custom viewer ONLY
         #ifndef USE_PCL
         //draw an actual plane on the viewer where the ground is
         //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
        // viewer.updatePointCloud(testcloudmat);
-
         #endif
-
         cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
-
-         std::this_thread::sleep_for(0.2s);
+        std::this_thread::sleep_for(0.2s);
     }
     gpu_cloud.free();
     zed.close(); 
     return 1;
+    */
 }
