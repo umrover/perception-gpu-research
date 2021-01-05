@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
-    EuclideanClusterExtractor ece(520, 50, 0, tmp, 4); //60/120
+    EuclideanClusterExtractor ece(520, 50, 0, tmp, 6); //60/120
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -196,7 +196,10 @@ int main(int argc, char** argv) {
 
         cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
 
-         //std::this_thread::sleep_for(0.2s);
+        for(int i = 0; i < 10000; i++){
+            viewer.isAvailable();
+        }
+        //std::this_thread::sleep_for(0.2s);
     }
     gpu_cloud.free();
     zed.close(); 

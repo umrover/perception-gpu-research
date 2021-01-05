@@ -818,13 +818,16 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* valu
     float magenta = 2.34184088514e-38; 
     float yellow = 9.18340948595e-41;
     
-    int lbl = labels[ptIdx] % 5;
-    //printf("(%i, %i)\n",ptIdx, lbl);
+    pc.data[ptIdx].w = yellow+0.0000000000000001*labels[ptIdx]*4;
+    //int lbl = labels[ptIdx] % 5;
+    
+    /*
     if(lbl == 0) pc.data[ptIdx].w = red;
     if(lbl == 1) pc.data[ptIdx].w = green;
     if(lbl == 2) pc.data[ptIdx].w = blue;
     if(lbl == 3) pc.data[ptIdx].w = magenta;
     if(lbl == 4) pc.data[ptIdx].w = yellow; 
+    */
 
 }
 
