@@ -537,7 +537,7 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     int zBoundBin = hashToBin(zBoundPt, mins, maxes, partitions);
 
                                                 
-    int revPt = 0;
+    int revPt = -1;
     if(ptIdx == revPt){
         printf("start (%.1f, %.1f, %.1f)\n",startBinPt.x, startBinPt.y, startBinPt.z);
         printf("xBound (%.1f, %.1f, %.1f)\n",xBoundPt.x, xBoundPt.y, xBoundPt.z);
@@ -644,7 +644,7 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
     int zBoundBin = hashToBin(zBoundPt, mins, maxes, partitions);
 
                                                 
-    int revPt = 0;
+    int revPt = -1;
     if(ptIdx == revPt){
         printf("start (%.1f, %.1f, %.1f)\n",startBinPt.x, startBinPt.y, startBinPt.z);
         printf("xBound (%.1f, %.1f, %.1f)\n",xBoundPt.x, xBoundPt.y, xBoundPt.z);
@@ -735,7 +735,7 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
-    if(ptIdx == 0){
+    if(ptIdx == -1){
         for(int i = 0; i < 10; i++){
             printf("Pt %i: ", i);
             for(int j = listStart[i]; j < listStart[i+1]; ++j){
@@ -819,7 +819,7 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* valu
     float yellow = 9.18340948595e-41;
     
     int lbl = labels[ptIdx] % 5;
-    printf("(%i, %i)\n",ptIdx, lbl);
+    //printf("(%i, %i)\n",ptIdx, lbl);
     if(lbl == 0) pc.data[ptIdx].w = red;
     if(lbl == 1) pc.data[ptIdx].w = green;
     if(lbl == 2) pc.data[ptIdx].w = blue;
@@ -863,6 +863,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
     
     cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
+    std::cerr<<"Building graph\n";
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
                                         bins, binCount, mins, maxes, partitions);
     checkStatus(cudaDeviceSynchronize());
