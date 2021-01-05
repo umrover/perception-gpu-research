@@ -544,7 +544,16 @@ no more changes are pending.
 __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, bool* m) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
-
+    if(ptIdx == 0){
+        for(int i = 0; i < 10; i++){
+            printf("Pt %i: ", i);
+            for(int j = listStart[i]; j < listStart[i+1]; ++j){
+                printf("%i, ", neighborLists[j]);
+            }
+            printf("\n");    
+        }
+        
+    }
     //debug lines
    // if(threadIdx.x == 0) *m = false;
    // __syncthreads();
