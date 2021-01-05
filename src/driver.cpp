@@ -41,7 +41,7 @@ void spinZedViewer() {
 }
 
 int main(int argc, char** argv) {  
-    
+    /*
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
     
@@ -76,32 +76,35 @@ int main(int argc, char** argv) {
     //slows down performance of all GPU functions since running in parallel with them
     thread zedViewerThread(spinZedViewer);
     #endif
-
+    */
 
     //Temporary DEBUG model:
-    /*
-    int testcloudsize = 8;
+    
+    //Create a point synthetic point cloud
+    int testcloudsize = 10;
     GPU_Cloud_F4 testcloud;
-    //cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
-    //testcloud.size = testcloudsize;
-    sl::float4 dataCPU[testcloudsize] = {
-        sl::float4(100, 0, 100, 4545), //0
-        sl::float4(-100, 0, 100, 4545), //1
-        sl::float4(0, 0, 100, 4545), //2
-        sl::float4(100, 100, 100, 4545), //3
-        sl::float4(-100, 100, 100, 4545), //4
-        sl::float4(-400, 100, 400, 4545), //5
-        sl::float4(-420, 100, 400, 4545), //6
-        sl::float4(400, 100, 400, 4545), //7
-    };
-    sl::Mat testcloudmat(cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
-    for(int i = 0; i < testcloudsize; i++) testcloudmat.setValue(i, 0, dataCPU[i], sl::MEM::GPU);
-    //cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
-    testcloud = getRawCloud(testcloudmat, true);
+    cudaMalloc(&testcloud.data , sizeof(sl::float4) * testcloudsize);
     testcloud.size = testcloudsize;
-    EuclideanClusterExtractor ece(110, 0, 0, testcloud);
-    ece.extractClusters(testcloud);*/
-
+    sl::float4 dataCPU[testcloudsize] = {
+        sl::float4(0, 0, 1, 4545), 
+        sl::float4(0, 0, -15, 4545),
+        sl::float4(-15, 0, 0, 4545),
+        sl::float4(15, -15, 6, 4545),
+        sl::float4(1, 1, -1, 4545),
+        sl::float4(-15, 15, 15, 4545),
+        sl::float4(-15, -15, 15, 4545),
+        sl::float4(-15, 15, -15, 4545),
+        sl::float4(15, 15, -15, 4545),
+        sl::float4(-15, -15, 15, 4545),
+    };
+    cudaMemcpy(testcloud.data, dataCPU, sizeof(sl::float4) * testcloudsize, cudaMemcpyHostToDevice);
+    
+    EuclideanClusterExtractor ece(5, 0, 0, testcloud, 2);
+    ece.findBoundingBox(testcloud);
+    ece.buildBins(testcloud);
+    ece.extractClusters(testcloud);
+    ece.freeBins();
+    /*
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
     EuclideanClusterExtractor ece(520, 50, 0, tmp, 4); //60/120
@@ -201,4 +204,5 @@ int main(int argc, char** argv) {
     gpu_cloud.free();
     zed.close(); 
     return 1;
+    */
 }

@@ -486,26 +486,26 @@ void EuclideanClusterExtractor::freeBins() {
 }
 
 __device__ void findEdgePtsOfRadius (sl::float4 &startBinPt, sl::float4 &xBoundPt, sl::float4 &yBoundPt, 
-                                    sl::float4 &zBoundPt, int tolerance) {
-    //Start Bin
-    startBinPt -= tolerance;
-    startBinPt -= tolerance;
-    startBinPt -= tolerance; 
+                                    sl::float4 &zBoundPt, int tolerance, float* mins, float* maxes) {
+    //Start Bin checking for going out of bounds
+    startBinPt.z = (mins[2] < startBinPt.z-tolerance) ? startBinPt.z-tolerance : mins[2]+1;
+    startBinPt.y = (mins[1] < startBinPt.y-tolerance) ? startBinPt.y-tolerance : mins[1]+1;
+    startBinPt.x = (mins[0] < startBinPt.x-tolerance) ? startBinPt.x-tolerance : mins[0]+1; 
     
-    //X Edge
-    xBoundPt.z -= tolerance;
-    xBoundPt.y -= tolerance;
-    xBoundPt.x += tolerance; 
+    //X Edge checking for going out of bounds
+    xBoundPt.z = (mins[2] < xBoundPt.z-tolerance) ? xBoundPt.z-tolerance : mins[2]+1;
+    xBoundPt.y = (mins[1] < xBoundPt.y-tolerance) ? xBoundPt.y-tolerance : mins[1]+1;
+    xBoundPt.x = (maxes[0] > xBoundPt.x+tolerance) ? xBoundPt.x+tolerance : maxes[0]-1; 
     
-    //Y Edge
-    yBoundPt.z -= tolerance;
-    yBoundPt.y += tolerance;
-    yBoundPt.x -= tolerance;                                             
+    //Y Edge checking for going out of bounds
+    yBoundPt.z = (mins[2] < yBoundPt.z-tolerance) ? yBoundPt.z-tolerance : mins[2]+1;
+    yBoundPt.y = (maxes[1] > yBoundPt.y+tolerance) ? yBoundPt.y+tolerance : maxes[1]-1;
+    yBoundPt.x = (mins[0] < yBoundPt.x-tolerance) ? yBoundPt.x-tolerance : mins[0]+1;                                             
     
-    //Z Edge
-    yBoundPt.z += tolerance;
-    yBoundPt.y -= tolerance;
-    yBoundPt.x -= tolerance;                                             
+    //Z Edge checking for going out of bounds
+    zBoundPt.z = (maxes[2] > zBoundPt.z+tolerance) ? zBoundPt.z+tolerance : maxes[2]-1;
+    zBoundPt.y = (mins[1] < zBoundPt.y-tolerance) ? zBoundPt.y-tolerance : mins[1]+1;
+    zBoundPt.x = (mins[0] < zBoundPt.x-tolerance) ? zBoundPt.x-tolerance : mins[0]+1;                                             
 }
 
 /*
@@ -516,7 +516,7 @@ point can have the entire dataset amount of neighbors. Perhaps we can
 explore this allocation method instead.
 */
 //b: enough, t: each point
-__global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* listStart, int** bins,
+__global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, int* listStart, int** bins, int* binCount,
                                             float* mins, float* maxes, int partitions) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
@@ -528,7 +528,7 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     sl::float4 startBinPt = pc.data[ptIdx], xBoundPt = startBinPt, 
     yBoundPt = startBinPt, zBoundPt = startBinPt;
 
-    findEdgePtsOfRadius(startBinPt, xBoundPt, yBoundPt, zBoundPt, tolerance);
+    findEdgePtsOfRadius(startBinPt, xBoundPt, yBoundPt, zBoundPt, tolerance, mins, maxes);
 
     //Find Edge Bins
     int xStartBin = hashToBin(startBinPt, mins, maxes, partitions);
@@ -536,11 +536,26 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     int yBoundBin = hashToBin(yBoundPt, mins, maxes, partitions);
     int zBoundBin = hashToBin(zBoundPt, mins, maxes, partitions);
 
+                                                
+    int revPt = 0;
+    if(ptIdx == revPt){
+        printf("start (%.1f, %.1f, %.1f)\n",startBinPt.x, startBinPt.y, startBinPt.z);
+        printf("xBound (%.1f, %.1f, %.1f)\n",xBoundPt.x, xBoundPt.y, xBoundPt.z);
+        printf("yBound (%.1f, %.1f, %.1f)\n",yBoundPt.x, yBoundPt.y, yBoundPt.z);
+        printf("zBound (%.1f, %.1f, %.1f)\n",zBoundPt.x, zBoundPt.y, zBoundPt.z);
+        printf("max x: %.1f\n", maxes[0]);
+        printf("min y: %.1f\n", mins[1]);
+        printf("max z: %.1f\n", maxes[2]);
+
+        printf("startBin: %i\n xBin: %i\n yBin: %i\n zBin: %i\n", xStartBin, xBoundBin, yBoundBin, zBoundBin);
+    }
+    __syncthreads();
     int yStartBin = xStartBin, zStartBin = xStartBin;
 
     const int totalBins = (zBoundBin-xStartBin+1) * ((yBoundBin-xStartBin)/partitions+1) *
                     ((xBoundBin-xStartBin)/(partitions*partitions)+1);
-
+    if(ptIdx == revPt)
+    printf("totalBins: %i\n", totalBins);
     int* binsToSearch = (int*)malloc(sizeof(int)*totalBins);
 
     /*
@@ -548,39 +563,58 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     The bin one away from currBin in Y direction is binNum +-partitions
     The bin one away from currBin in X direction is binNum +-partitions^2
     */
-    //Start at lower left, iterate left to right, bottom to top, front to back
-    //Iterate front to back
+    //Start at lower left, iterate front to back, bottom to top, left to right 
+    //Iterate left to right
     int binAdded = 0;
-    for(int i = zStartBin; i <= zBoundBin; i += 1) {
+    for(int i = xStartBin; i <= xBoundBin; i += partitions*partitions) {
         //Iterate bottom to top
         for(int j = yStartBin; j <= yBoundBin; j += partitions) {
-            //Iterate left to right
-            for(int k = xStartBin; k <= xBoundBin; k+=partitions*partitions){
+            //Iterate front to back
+            for(int k = zStartBin; k <= zBoundBin; ++k){
                 binsToSearch[binAdded] = k;
+                binAdded++;
+                if(ptIdx == revPt){
+                    printf("Added bin: %i\n", k);
+                }
             }
-            xBoundBin += partitions; //Shift xBoundBin up
-            xStartBin += partitions; //Shift startBin up
+            zBoundBin += partitions; //Shift zBoundBin up
+            zStartBin += partitions; //Shift ztartBin up
         }
-        yBoundBin += 1; //Shift yBoundBin forward
-        yStartBin += 1; //Shift yStartBin forward
+        yBoundBin += partitions*partitions; //Shift yBoundBin right
+        yStartBin += partitions*partitions; //Shift yStartBin right
     }
 
     //Iterate through points in bins to search and check if they are within the radius of the point
     for(size_t i = 0; i < totalBins; ++i){
-        for(int j = 0; bins[binsToSearch[i]][j] != NULL; ++j){
-            sl::float3 dvec = (pt - sl::float3(pc.data[i]));
+        if(ptIdx == revPt){
+            printf("Searching bin: %i\n", binsToSearch[i]);
+            printf("Number to search: %i\n", binCount[binsToSearch[i]]);
+        }
+        for(int j = 0; j < binCount[binsToSearch[i]]; ++j){
+            if(ptIdx == revPt){
+                printf("             Comp index: %i\n", bins[binsToSearch[i]][j]);
+            }
+            sl::float3 dvec = (pt - sl::float3(pc.data[bins[binsToSearch[i]][j]]));
+            
             //this is a neighbor
-            if( dvec.norm() < tolerance && i != ptIdx) {
+            if( dvec.norm() < tolerance && bins[binsToSearch[i]][j] != ptIdx) {
                 neighborCount++;
+                if(ptIdx == revPt){
+                    printf("Added neighbor\n");
+                }
             }
         }
     }
-
+    if(ptIdx == revPt)
+    printf("Check illegal access\n");
     listStart[ptIdx] = neighborCount;
-    
+    if(ptIdx == revPt)
+    printf("Check illegal delete\n");
     free(binsToSearch);
     //we must do an exclusive scan using thrust after this kernel
     //printf("%d: %d \n",ptIdx, neighborCount );
+    if(ptIdx == revPt)
+    printf("Check illegal free\n");
 }
 
 
@@ -588,7 +622,7 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
 Fairly standard adjacency list structure. 
 */
 __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2, 
-                            int** bins, float* mins, float* maxes, int partitions) {
+                            int** bins, int* binCount, float* mins, float* maxes, int partitions) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
@@ -598,62 +632,98 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
     int* list = neighborLists + listStart[ptIdx];
     
      //Initialize edge vars
-     sl::float4 startBinPt = pc.data[ptIdx], xBoundPt = startBinPt, 
-     yBoundPt = startBinPt, zBoundPt = startBinPt;
- 
-     findEdgePtsOfRadius(startBinPt, xBoundPt, yBoundPt, zBoundPt, tolerance);
- 
-     //Find Edge Bins
-     int xStartBin = hashToBin(startBinPt, mins, maxes, partitions);
-     int xBoundBin = hashToBin(xBoundPt, mins, maxes, partitions);
-     int yBoundBin = hashToBin(yBoundPt, mins, maxes, partitions);
-     int zBoundBin = hashToBin(zBoundPt, mins, maxes, partitions);
- 
-     int yStartBin = xStartBin, zStartBin = xStartBin;
+    sl::float4 startBinPt = pc.data[ptIdx], xBoundPt = startBinPt, 
+    yBoundPt = startBinPt, zBoundPt = startBinPt;
+
+    findEdgePtsOfRadius(startBinPt, xBoundPt, yBoundPt, zBoundPt, tolerance, mins, maxes);
+
+    //Find Edge Bins
+    int xStartBin = hashToBin(startBinPt, mins, maxes, partitions);
+    int xBoundBin = hashToBin(xBoundPt, mins, maxes, partitions);
+    int yBoundBin = hashToBin(yBoundPt, mins, maxes, partitions);
+    int zBoundBin = hashToBin(zBoundPt, mins, maxes, partitions);
+
+                                                
+    int revPt = 0;
+    if(ptIdx == revPt){
+        printf("start (%.1f, %.1f, %.1f)\n",startBinPt.x, startBinPt.y, startBinPt.z);
+        printf("xBound (%.1f, %.1f, %.1f)\n",xBoundPt.x, xBoundPt.y, xBoundPt.z);
+        printf("yBound (%.1f, %.1f, %.1f)\n",yBoundPt.x, yBoundPt.y, yBoundPt.z);
+        printf("zBound (%.1f, %.1f, %.1f)\n",zBoundPt.x, zBoundPt.y, zBoundPt.z);
+        printf("max x: %.1f\n", maxes[0]);
+        printf("min y: %.1f\n", mins[1]);
+        printf("max z: %.1f\n", maxes[2]);
+
+        printf("startBin: %i\n xBin: %i\n yBin: %i\n zBin: %i\n", xStartBin, xBoundBin, yBoundBin, zBoundBin);
+    }
+    __syncthreads();
+    int yStartBin = xStartBin, zStartBin = xStartBin;
 
     const int totalBins = (zBoundBin-xStartBin+1) * ((yBoundBin-xStartBin)/partitions+1) *
                     ((xBoundBin-xStartBin)/(partitions*partitions)+1);
-
+    if(ptIdx == revPt)
+    printf("totalBins: %i\n", totalBins);
     int* binsToSearch = (int*)malloc(sizeof(int)*totalBins);
 
-     /*
-     The bin one away from currBin in Z direction is binNum +-1
-     The bin one away from currBin in Y direction is binNum +-partitions
-     The bin one away from currBin in X direction is binNum +-partitions^2
-     */
-     //Start at lower left, iterate left to right, bottom to top, front to back
-     int binAdded = 0;
-     //Iterate front to back
-     for(int i = zStartBin; i <= zBoundBin; i += 1) {
-         //Iterate bottom to top
-         for(int j = yStartBin; j <= yBoundBin; j += partitions) {
-             //Iterate left to right
-             for(int k = xStartBin; k <= xBoundBin; k+=partitions*partitions){
-                 binsToSearch[binAdded] = k;
-             }
-             xBoundBin += partitions; //Shift xBoundBin up
-             xStartBin += partitions; //Shift startBin up
-         }
-         yBoundBin += 1; //Shift yBoundBin forward
-         yStartBin += 1; //Shift yStartBin forward
-     }
- 
-     //Iterate through points in bins to search and check if they are within the radius of the point
-     for(size_t i = 0; i < totalBins; ++i){
-         for(int j = 0; bins[binsToSearch[i]][j] != NULL; ++j){
-             sl::float3 dvec = (pt - sl::float3(pc.data[i]));
-             //this is a neighbor
-             if( dvec.norm() < tolerance && i != ptIdx) {
+    /*
+    The bin one away from currBin in Z direction is binNum +-1
+    The bin one away from currBin in Y direction is binNum +-partitions
+    The bin one away from currBin in X direction is binNum +-partitions^2
+    */
+    //Start at lower left, iterate front to back, bottom to top, left to right 
+    //Iterate left to right
+    int binAdded = 0;
+    for(int i = xStartBin; i <= xBoundBin; i += partitions*partitions) {
+        //Iterate bottom to top
+        for(int j = yStartBin; j <= yBoundBin; j += partitions) {
+            //Iterate front to back
+            for(int k = zStartBin; k <= zBoundBin; ++k){
+                binsToSearch[binAdded] = k;
+                binAdded++;
+                if(ptIdx == revPt){
+                    printf("Added bin: %i\n", k);
+                }
+            }
+            zBoundBin += partitions; //Shift zBoundBin up
+            zStartBin += partitions; //Shift ztartBin up
+        }
+        yBoundBin += partitions*partitions; //Shift yBoundBin right
+        yStartBin += partitions*partitions; //Shift yStartBin right
+    }
+
+    //Iterate through points in bins to search and check if they are within the radius of the point
+    for(size_t i = 0; i < totalBins; ++i){
+        if(ptIdx == revPt){
+            printf("Searching bin: %i\n", binsToSearch[i]);
+            printf("Number to search: %i\n", binCount[binsToSearch[i]]);
+        }
+        for(int j = 0; j < binCount[binsToSearch[i]]; ++j){
+            if(ptIdx == revPt){
+                printf("             Comp index: %i\n", bins[binsToSearch[i]][j]);
+            }
+            sl::float3 dvec = (pt - sl::float3(pc.data[bins[binsToSearch[i]][j]]));
+            
+            //this is a neighbor
+            if( dvec.norm() < tolerance && bins[binsToSearch[i]][j] != ptIdx) {
                 list[neighborCount] = i; 
                 neighborCount++;
-             }
-         }
-     }
+                if(ptIdx == revPt){
+                    printf("Added neighbor\n");
+                }
+            }
+        }
+    }
+    if(ptIdx == revPt)
+    printf("Check illegal delete\n");
+    free(binsToSearch);
+    //we must do an exclusive scan using thrust after this kernel
+    //printf("%d: %d \n",ptIdx, neighborCount );
+    if(ptIdx == revPt)
+    printf("Check illegal free\n");
 
     labels[ptIdx] = ptIdx;
     f1[ptIdx] = true;
     f2[ptIdx] = false;
-    free(binsToSearch);
 }
 
 /*
@@ -739,7 +809,7 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* valu
     float yellow = 9.18340948595e-41;
     
     int lbl = labels[ptIdx] % 5;
-    
+    printf("(%i, %i)\n",ptIdx, lbl);
     if(lbl == 0) pc.data[ptIdx].w = red;
     if(lbl == 1) pc.data[ptIdx].w = green;
     if(lbl == 2) pc.data[ptIdx].w = blue;
@@ -770,7 +840,9 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //set frontier arrays appropriately [done in build graph]
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
-    determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, mins, maxes, partitions);
+    std::cerr<<"Starting to find graph structure\n";
+    determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, binCount, mins, maxes, partitions);
+    std::cerr << "Graph strucure determined\n";
     thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
     checkStatus(cudaDeviceSynchronize());
     int totalAdjanecyListsSize;
@@ -782,8 +854,9 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     
     cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
-                                        bins, mins, maxes, partitions);
+                                        bins, binCount, mins, maxes, partitions);
     checkStatus(cudaDeviceSynchronize());
+    std::cerr << "Graph built\n";
 
     //int* temp2 = (int*) malloc(sizeof(int)*(totalAdjanecyListsSize));
     //checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
