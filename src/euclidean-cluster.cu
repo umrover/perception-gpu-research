@@ -285,7 +285,7 @@ __global__ void findExtremaKernel (GPU_Cloud_F4 pc, int size, int *minGlobal, in
 
             else {
                 float addY = (difX-difY)/2+1;
-                float addZ = (difY-difZ)/2+1;
+                float addZ = (difX-difZ)/2+1;
                 finalMax[2] += addZ;
                 finalMin[2] -= addZ;
                 finalMax[1] += addY;

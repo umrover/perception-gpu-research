@@ -196,7 +196,8 @@ int main(int argc, char** argv) {
 
         cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
         
-        for(int i = 0; i < 10000; i++){
+        //I did this that way the viewer would still respond
+        for(int i = 0; i < 1000; i++){
             viewer.isAvailable();
         }
         
