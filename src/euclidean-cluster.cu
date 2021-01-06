@@ -566,6 +566,7 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
     //Start at lower left, iterate front to back, bottom to top, left to right 
     //Iterate left to right
     int binAdded = 0;
+    int zDif = zBoundBin-zStartBin;
     for(int i = xStartBin; i <= xBoundBin; i += partitions*partitions) {
         //Iterate bottom to top
         for(int j = yStartBin; j <= yBoundBin; j += partitions) {
@@ -582,7 +583,6 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
         }
         yBoundBin += (partitions*partitions); //Shift yBoundBin right
         yStartBin += (partitions*partitions); //Shift yStartBin right
-        int zDif = zBoundBin-zStartBin;
         zStartBin = yStartBin;
         zBoundBin = zStartBin+zDif;
     }
@@ -676,6 +676,7 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
     //Start at lower left, iterate front to back, bottom to top, left to right 
     //Iterate left to right
     int binAdded = 0;
+    int zDif = zBoundBin-zStartBin;
     for(int i = xStartBin; i <= xBoundBin; i += partitions*partitions) {
         //Iterate bottom to top
         for(int j = yStartBin; j <= yBoundBin; j += partitions) {
@@ -692,7 +693,6 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
         }
         yBoundBin += (partitions*partitions); //Shift yBoundBin right
         yStartBin += (partitions*partitions); //Shift yStartBin right
-        int zDif = zBoundBin-zStartBin;
         zStartBin = yStartBin;
         zBoundBin = zStartBin+zDif;
     }
