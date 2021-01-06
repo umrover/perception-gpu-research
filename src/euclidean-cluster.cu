@@ -580,8 +580,11 @@ __global__ void determineGraphStructureKernel(GPU_Cloud_F4 pc, float tolerance, 
             zBoundBin += partitions; //Shift zBoundBin up
             zStartBin += partitions; //Shift ztartBin up
         }
-        yBoundBin += partitions*partitions; //Shift yBoundBin right
-        yStartBin += partitions*partitions; //Shift yStartBin right
+        yBoundBin += (partitions*partitions); //Shift yBoundBin right
+        yStartBin += (partitions*partitions); //Shift yStartBin right
+        int zDif = zBoundBin-zStartBin;
+        zStartBin = yStartBin;
+        zBoundBin = zStartBin+zDif;
     }
 
     //Iterate through points in bins to search and check if they are within the radius of the point
@@ -687,8 +690,11 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
             zBoundBin += partitions; //Shift zBoundBin up
             zStartBin += partitions; //Shift ztartBin up
         }
-        yBoundBin += partitions*partitions; //Shift yBoundBin right
-        yStartBin += partitions*partitions; //Shift yStartBin right
+        yBoundBin += (partitions*partitions); //Shift yBoundBin right
+        yStartBin += (partitions*partitions); //Shift yStartBin right
+        int zDif = zBoundBin-zStartBin;
+        zStartBin = yStartBin;
+        zBoundBin = zStartBin+zDif;
     }
 
     //Iterate through points in bins to search and check if they are within the radius of the point
