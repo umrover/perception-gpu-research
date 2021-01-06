@@ -27,7 +27,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
-    EuclideanClusterExtractor ece(520, 50, 0, tmp); //60/120
+    EuclideanClusterExtractor ece(100, 50, 0, tmp); //60/120
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -192,6 +192,10 @@ int main(int argc, char** argv) {
 
         #endif
 
+        for(int i = 0; i < 1000; i++){
+            viewer.isAvailable();
+        }
+        
         cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
     }
     gpu_cloud.free();
