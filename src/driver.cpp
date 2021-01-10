@@ -27,7 +27,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-//#define USE_PCL
+#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;

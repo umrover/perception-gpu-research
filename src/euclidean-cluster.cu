@@ -797,19 +797,6 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
                                         bins, binCount, mins, maxes, partitions);
     checkStatus(cudaDeviceSynchronize());
 
-    //int* temp2 = (int*) malloc(sizeof(int)*(totalAdjanecyListsSize));
-    //checkStatus(cudaMemcpy(temp2, neighborLists, sizeof(int)*(totalAdjanecyListsSize), cudaMemcpyDeviceToHost));
-    //for(int i = 0; i < totalAdjanecyListsSize; i++) std::cout << "neighbor list: " << temp2[i] << std::endl;
-    
-    /*
-    for(int i = 0; i < 4; i++) {
-    bool flag = false;
-    cudaMemcpy(stillGoing, &flag, sizeof(bool), cudaMemcpyHostToDevice);
-    propogateLabels<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, neighborLists, listStart, labels, f1, f2, stillGoing);
-    bool* t = f1;
-    f1 = f2;
-    f2 = t;
-    }*/
     
     bool stillGoingCPU = true;    
     while(stillGoingCPU) {

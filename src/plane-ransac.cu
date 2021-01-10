@@ -399,8 +399,6 @@ RansacPlane::RansacPlane(sl::float3 axis, float epsilon, int iterations, float t
     //Generate a buffer for retreiving the selected model from CUDA Kernels
     selectedModel = (float*) malloc(sizeof(float)* 3 * 3); 
 
-    //Generate a buffer for inlier lists on CPU and GPU
-    cudaMalloc(&inliers.data, sizeof(int) * pcSize);
 
 }
 
@@ -466,6 +464,8 @@ RansacPlane::Plane RansacPlane::computeModel(GPU_Cloud_F4 &pc, bool flag) {
     Plane plane = {sl::float3(selectedModel[0], selectedModel[1], selectedModel[2]), 
                          sl::float3(selectedModel[3], selectedModel[4], selectedModel[5]) ,
                          sl::float3(selectedModel[6], selectedModel[7], selectedModel[8])};
+
+    cudaFree(size);
     
     return plane;
 }
@@ -484,5 +484,6 @@ RansacPlane::~RansacPlane() {
     cudaFree(inlierCounts);
     cudaFree(modelPoints);
     cudaFree(selection);
+    cudaFree(optimalModelIndex);
     free(selectedModel);
 }
