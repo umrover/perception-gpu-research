@@ -14,12 +14,6 @@
 #include "pass-through.hpp"
 #include "euclidean-cluster.hpp"
 
-
-#include <thrust/fill.h>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-
-
 using namespace std::chrono; 
 
 /*
@@ -40,6 +34,7 @@ void spinZedViewer() {
     }
 }
 
+
 int main(int argc, char** argv) {  
     
     sl::Resolution cloud_res(320/2, 180/2);
@@ -59,7 +54,7 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //Pass Through Filter
-    PassThrough passZ('z', 200.0, 7000.0); //This probly won't do much since range so large
+    PassThrough passZ('z', 200.0, 7000.0); //This probly won't do much since range so large 200-7000
    // PassThrough passY('y', 100.0, 600.0); 
     
     //This is a RANSAC model that we will use
@@ -92,10 +87,9 @@ int main(int argc, char** argv) {
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
         #endif
+
         //Grab cloud from the Zed camera
-        
-        #ifndef USE_PCL
-        
+        #ifndef USE_PCL        
         auto grabStart = high_resolution_clock::now();
         zed.grab();
         zed.retrieveMeasure(gpu_cloud, sl::MEASURE::XYZRGBA, sl::MEM::GPU, cloud_res); 
@@ -106,20 +100,16 @@ int main(int argc, char** argv) {
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         #endif
         
+
         //Run PassThrough Filter
-        
         cout << "[size] pre-pass-thru: " << pc_f4.size << endl;
-        
         auto passThroughStart = high_resolution_clock::now();
         passZ.run(pc_f4);
-        //passY.run(pc_f4);
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
         cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
-        
        
-        cout << "[size] pre-ransac: " << pc_f4.size << endl;
-        clearStale(pc_f4, 320/2*180/2);
+        cout << "[size] pre-ransac: " << pc_f4.size << endl; 
         //Perform RANSAC Plane segmentation to find the ground
         auto ransacStart = high_resolution_clock::now();
         RansacPlane::Plane planePoints = ransac.computeModel(pc_f4, true);
@@ -129,10 +119,7 @@ int main(int argc, char** argv) {
         cout << "[size] post-ransac: " << pc_f4.size << endl; 
         clearStale(pc_f4, 320/2*180/2);
 
-        //TestFilter tf;
-        //tf.run(pc_f4); 
-
-        
+               
         auto eceStart = high_resolution_clock::now();
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
@@ -142,6 +129,7 @@ int main(int argc, char** argv) {
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
         
+
         #ifndef USE_PCL
         viewer.isAvailable();
         #endif

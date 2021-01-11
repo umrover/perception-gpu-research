@@ -21,8 +21,7 @@ class PassThrough {
     float min;
     float max;
 
-    //0=X 1=Y 2=Z
-    int axis;
+    char axis;
 
 };
 

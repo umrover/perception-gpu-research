@@ -110,10 +110,38 @@ void clearStale(GPU_Cloud_F4 &cloud, int maxSize) {
     checkStatus(cudaDeviceSynchronize());
 }
 
-//void PclToZed();*/
 /*
-__global__
+__host__ __device__ Float4Iterator::Float4Iterator() : elem(nullptr) {};
 
-void sanatizeCloudDisplay(GPU_Cloud_F4, sl::Resolution memoryAllocated) {
+__host__ __device__ Float4Iterator::Float4Iterator(sl::float4 *data, int dim) : elem(data), dim(dim) {}
 
-} */
+__host__ __device__ float & Float4Iterator::operator*() {
+    return (*elem)[dim];
+}
+
+__host__ __device__ Float4Iterator& Float4Iterator::operator++() {
+    elem++;
+    return *this;
+}
+
+__host__ __device__ bool Float4Iterator::operator!=(Float4Iterator rhs) {
+    return rhs.elem != elem;
+}
+
+__host__ __device__ Float4Iterator& Float4Iterator::operator++(int dummy) {
+    elem++;
+    return *this;
+}
+
+__host__ __device__ bool Float4Iterator::operator==(Float4Iterator rhs) {
+    return rhs.elem == elem;
+
+}*/
+    
+    /*
+    float & operator*();
+    Float4Iterator& operator++();
+    bool operator!=();
+private:
+    sl::float4* elem;
+}*/

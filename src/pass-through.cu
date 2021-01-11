@@ -3,19 +3,23 @@
 #include <cmath>
 #include <limits>
 #include "common.hpp"
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/fill.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/iterator/transform_iterator.h>
+#include <thrust/sequence.h>
 
-PassThrough::PassThrough(char axis, float min, float max) : min{min}, max{max} {
+PassThrough::PassThrough(char axis, float min, float max) : min{min}, max{max}, axis(axis){
 
     //Set the axis value
-    if(axis == 'x')
-        this->axis = 0;
-    else if(axis == 'y')
-        this->axis = 1;
-    else
-        this->axis = 2;
+
 
 };
 
+#ifdef OLD
+/*
 //CUDA Kernel Helper Function
 __global__ void passThroughKernel(GPU_Cloud_F4 cloud, GPU_Cloud_F4 out, int axis, float min, float max, int* size) {
 
@@ -91,4 +95,43 @@ void PassThrough::run(GPU_Cloud_F4 &cloud){
     //Free dynamically allocated memory
     cudaFree(d_newSize);
     delete h_newSize;
+}
+*/
+#endif
+
+//Functor predicate to check if a point is within some min and max bounds on a particular axis
+class WithinBounds {
+public:
+    WithinBounds(float min, float max, char axis) : min(min), max(max), axis(axis) {}
+
+    __host__ __device__ bool operator()(const sl::float4 val) {
+        float test;
+        if(axis == 'z') test = val.z;
+        else if(axis == 'y') test = val.y;
+        return test > min && test < max;
+    }
+
+private:
+    float min, max;
+    char axis;
+};
+
+//Execute pass through
+void PassThrough::run(GPU_Cloud_F4 &cloud){
+
+    //Instansiate a predicate functor and copy the contents of the cloud
+    WithinBounds pred(min, max, axis);
+    thrust::device_vector<sl::float4> buffer(cloud.data, cloud.data+cloud.size);
+
+    //Copy from the temp buffer back into the cloud only the points that pass the predicate 
+    sl::float4* end = thrust::copy_if(thrust::device, buffer.begin(), buffer.end(), cloud.data, pred);
+
+    //Clear the remainder of the cloud of points that failed pass through
+    thrust::fill(thrust::device, end, cloud.data+cloud.size, sl::float4(0, 0, 0, 0));
+
+    //update the cloud size
+    cloud.size = end - cloud.data;
+
+    
+
 }

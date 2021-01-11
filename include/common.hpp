@@ -8,6 +8,7 @@
 
 #define VIEWER_BGR_COLOR 2.14804915479e-38
 
+
 //GPU point cloud struct that can be passed to cuda kernels and represents a point cloud
 struct GPU_Cloud {
     float* data;
@@ -65,5 +66,6 @@ __device__ float getZ(GPU_Cloud pc, int index) {
     return pc.data[pc.stride * index + 2];
 } */
 #define MAX_THREADS 1024
+
 
 #endif
