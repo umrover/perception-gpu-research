@@ -109,39 +109,3 @@ void clearStale(GPU_Cloud_F4 &cloud, int maxSize) {
     removeJunkKernel<<<ceilDiv(maxSize-cloud.size, MAX_THREADS), MAX_THREADS>>>(cloud, cloud.size, maxSize);
     checkStatus(cudaDeviceSynchronize());
 }
-
-/*
-__host__ __device__ Float4Iterator::Float4Iterator() : elem(nullptr) {};
-
-__host__ __device__ Float4Iterator::Float4Iterator(sl::float4 *data, int dim) : elem(data), dim(dim) {}
-
-__host__ __device__ float & Float4Iterator::operator*() {
-    return (*elem)[dim];
-}
-
-__host__ __device__ Float4Iterator& Float4Iterator::operator++() {
-    elem++;
-    return *this;
-}
-
-__host__ __device__ bool Float4Iterator::operator!=(Float4Iterator rhs) {
-    return rhs.elem != elem;
-}
-
-__host__ __device__ Float4Iterator& Float4Iterator::operator++(int dummy) {
-    elem++;
-    return *this;
-}
-
-__host__ __device__ bool Float4Iterator::operator==(Float4Iterator rhs) {
-    return rhs.elem == elem;
-
-}*/
-    
-    /*
-    float & operator*();
-    Float4Iterator& operator++();
-    bool operator!=();
-private:
-    sl::float4* elem;
-}*/

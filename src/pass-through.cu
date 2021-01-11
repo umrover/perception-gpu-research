@@ -101,19 +101,19 @@ void PassThrough::run(GPU_Cloud_F4 &cloud){
 
 //Functor predicate to check if a point is within some min and max bounds on a particular axis
 class WithinBounds {
-public:
-    WithinBounds(float min, float max, char axis) : min(min), max(max), axis(axis) {}
+    public:
+        WithinBounds(float min, float max, char axis) : min(min), max(max), axis(axis) {}
 
-    __host__ __device__ bool operator()(const sl::float4 val) {
-        float test;
-        if(axis == 'z') test = val.z;
-        else if(axis == 'y') test = val.y;
-        return test > min && test < max;
-    }
+        __host__ __device__ bool operator()(const sl::float4 val) {
+            float test;
+            if(axis == 'z') test = val.z;
+            else if(axis == 'y') test = val.y;
+            return test > min && test < max;
+        }
 
-private:
-    float min, max;
-    char axis;
+    private:
+        float min, max;
+        char axis;
 };
 
 //Execute pass through
@@ -131,7 +131,5 @@ void PassThrough::run(GPU_Cloud_F4 &cloud){
 
     //update the cloud size
     cloud.size = end - cloud.data;
-
-    
-
 }
+

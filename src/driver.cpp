@@ -86,6 +86,10 @@ int main(int argc, char** argv) {
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
+
+        //DEBUG STEP, safe to remove if causing slowness - ash
+        sl::Mat orig; 
+        pclTest.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
         #endif
 
         //Grab cloud from the Zed camera
@@ -98,6 +102,9 @@ int main(int argc, char** argv) {
         auto grabEnd = high_resolution_clock::now();
         auto grabDuration = duration_cast<microseconds>(grabEnd - grabStart); 
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
+        //DEBUG STEP, safe to remove if causing slowness - ash
+        //sl::Mat orig; 
+        //gpu_cloud.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
         #endif
         
 
@@ -139,16 +146,19 @@ int main(int argc, char** argv) {
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
-        unsigned int microsecond = 1000000;
-       // usleep(microsecond);
         viewer.updatePointCloud(pclTest);
+        
+        //viewer.updatePointCloud(orig);
+       // updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
+
+
         #endif
 
 
         //ZED sdk custom viewer ONLY
         #ifndef USE_PCL
         //draw an actual plane on the viewer where the ground is
-        //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
+        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
        // viewer.updatePointCloud(testcloudmat);
 

@@ -815,18 +815,25 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     }
 
     
-    thrust::device_vector<int> labelsSorted(pc.size);
-    thrust::device_vector<int> count(pc.size, 1);
-    thrust::device_vector<int> keys(pc.size);
-    thrust::device_vector<int> values(pc.size);
+    thrust::device_vector<int> labelsSorted(pc.size); // the labels of clusters correspodnignt to various points {0, 0, 0 ..., 1, 1, 1, ... n, n, n} for n clusters
+    thrust::device_vector<int> count(pc.size, 1); //1s, size of point cloud many times. {1, 1, 1, ....}, this along with labels sorted can build a key value map
+    thrust::device_vector<int> keys(pc.size); //the indicies of each cluster
+    thrust::device_vector<int> values(pc.size); //the number of points in each cluster
+    thrust::device_vector<int> points(pc.size); //points correspodning to sorted labels
+    //thrust::pair<thrust::device_vector<int>::iterator, thrust::device_vector<int>::iterator> reducedEnd;
 
-
-    thrust::copy(thrust::device, labels, labels+pc.size, labelsSorted.begin());
-    thrust::sort(thrust::device, labelsSorted.begin(), labelsSorted.end());
-    thrust::reduce_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), count.begin(), keys.begin(), values.begin());
+    thrust::copy(thrust::device, labels, labels+pc.size, labelsSorted.begin()); //first make the labels sorted contain the labels in order of points
+    //thrust::sort(thrust::device, labelsSorted.begin(), labelsSorted.end());
+    thrust::sort_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), points.begin()); //now sort the labels by their label idx, and sort points corresponding
+    thrust::reduce_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), count.begin(), keys.begin(), values.begin()); //remove duplicate labels and determine the number of points belonging to each label
     int* gpuKeys = thrust::raw_pointer_cast( keys.data() );
     int* gpuVals = thrust::raw_pointer_cast( values.data() );
 
+    //find interest points
+    //exculsive scan on gpuVals to give the indicies of each new cluster start in the points array 
+    //for each on the array returned by the exclusive scan, going from the prev element to the cur, and finding the min/max
+    int numClusters = thrust::distance(keys.begin(), keys.end());
+    std::cout << "CLUSTERS: " << numClusters << std::endl;
 
     colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals, minSize);
     checkStatus(cudaDeviceSynchronize()); //not needed?
