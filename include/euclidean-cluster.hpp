@@ -41,7 +41,7 @@ class EuclideanClusterExtractor {
         //user given model parms
         GPU_Cloud_F4 pc;
         float tolerance;
-        float minSize;
+        int minSize;
         float maxSize;
         
         //internal information

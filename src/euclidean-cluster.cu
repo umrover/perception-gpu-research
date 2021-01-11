@@ -757,8 +757,35 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* valu
     float yellow = 9.18340948595e-41;
     
     pc.data[ptIdx].w = yellow+0.0000000000000001*labels[ptIdx]*4;
+}
+
+__global__ void colorClustersNew(GPU_Cloud_F4 pc, int* labels, int* keys, int numClusters) {
+    int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+
+    float yellow = 9.18340948595e-41;
+
+    for(int i = 0; i < numClusters; i++) {
+        if(labels[ptIdx] == keys[i]) {
+            pc.data[ptIdx].w = yellow+0.0000000000000001*labels[ptIdx]*4;
+            return;
+        }
+    }
+
+    pc.data[ptIdx].w = VIEWER_BGR_COLOR;
 
 }
+
+    
+class is_smaller_than_min {
+public: 
+    is_smaller_than_min(int min) : min(min) {}
+    __device__ __host__ bool operator()(const int size) {
+        return size < min;
+    }
+private:
+    int min;
+};
 
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize, GPU_Cloud_F4 pc, int partitions) 
 : tolerance{tolerance}, minSize{minSize}, maxSize{maxSize}, partitions{partitions} {
@@ -775,6 +802,7 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
 
    // colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, nullptr);
 }
+
 
 //perhaps use dynamic parallelism 
 void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
@@ -814,28 +842,50 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
         cudaMemcpy(&stillGoingCPU, stillGoing, sizeof(bool), cudaMemcpyDeviceToHost);
     }
 
-    
-    thrust::device_vector<int> labelsSorted(pc.size); // the labels of clusters correspodnignt to various points {0, 0, 0 ..., 1, 1, 1, ... n, n, n} for n clusters
-    thrust::device_vector<int> count(pc.size, 1); //1s, size of point cloud many times. {1, 1, 1, ....}, this along with labels sorted can build a key value map
-    thrust::device_vector<int> keys(pc.size); //the indicies of each cluster
-    thrust::device_vector<int> values(pc.size); //the number of points in each cluster
-    thrust::device_vector<int> points(pc.size); //points correspodning to sorted labels
-    //thrust::pair<thrust::device_vector<int>::iterator, thrust::device_vector<int>::iterator> reducedEnd;
-
+    //Build useful data structures mapping points to clusters and clusters to number of points
+    //Let C be the number of clusters, and N the number of points in the cloud
+    //After we preform the operations in this block, the contents of the vectors are as follows:
+    thrust::device_vector<int> labelsSorted(pc.size); //Point labels sorted by cluster. Len(N). 
+    thrust::device_vector<int> count(pc.size, 1); //buffer of all 1s. Len(N)
+    thrust::device_vector<int> keys(pc.size); //Each clusters unique ID in ascending order Len(C)
+    thrust::device_vector<int> values(pc.size); //The number of points in each cluster in ascending order by ID. Len(C)
+    thrust::device_vector<int> points(pc.size); //PC point indexes sorted by cluster. Len(N)
     thrust::copy(thrust::device, labels, labels+pc.size, labelsSorted.begin()); //first make the labels sorted contain the labels in order of points
-    //thrust::sort(thrust::device, labelsSorted.begin(), labelsSorted.end());
     thrust::sort_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), points.begin()); //now sort the labels by their label idx, and sort points corresponding
-    thrust::reduce_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), count.begin(), keys.begin(), values.begin()); //remove duplicate labels and determine the number of points belonging to each label
-    int* gpuKeys = thrust::raw_pointer_cast( keys.data() );
-    int* gpuVals = thrust::raw_pointer_cast( values.data() );
+    auto pair = thrust::reduce_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), count.begin(), keys.begin(), values.begin()); //remove duplicate labels and determine the number of points belonging to each label    
+   
+    //Determine how many clusters there actually are
+    int numClustersOrig = thrust::distance(keys.begin(), pair.first);
+    keys.resize(numClustersOrig);
+    values.resize(numClustersOrig);
+    std::cout << "CLUSTERS ORIG: " << numClustersOrig << std::endl;
+
+    //Determine the boundaries for each new cluster in the array of points sorted by cluster ID
+    thrust::device_vector<int> clusterBoundaries(numClustersOrig+1);
+    thrust::exclusive_scan(clusterBoundaries.begin(), clusterBoundaries.end(), clusterBoundaries.begin(), 0);
+
+    //Now get a list of cluster ID keys that are bigger than the min size by removing those that are less than the min size
+    is_smaller_than_min pred(minSize);
+    auto keyEnd = thrust::remove_if(thrust::device, keys.begin(), keys.end(), values.begin(), pred);
+    thrust::remove_if(thrust::device, values.begin(), values.end(), pred);
+
+    int numClusters = keyEnd - keys.begin();
+    keys.resize(numClusters);
+    values.resize(numClusters);
+    std::cout << "CLUSTERS NEW: " << numClusters << std::endl;
 
     //find interest points
-    //exculsive scan on gpuVals to give the indicies of each new cluster start in the points array 
-    //for each on the array returned by the exclusive scan, going from the prev element to the cur, and finding the min/max
-    int numClusters = thrust::distance(keys.begin(), keys.end());
-    std::cout << "CLUSTERS: " << numClusters << std::endl;
+    //exculsive scan on values to give the indicies of each new cluster start in the points array 
+    //for each on the array returned by the exclusive scan, going from the prev element to the cur,
+    //first determine if the labels for that range are contained within the clusterIDs [keys] vector (binary search),
+    //if so, then find extrema, otherwise move on
 
-    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals, minSize);
+    //Call a kernel to color the clusters for debug reasons
+    int* gpuKeys = thrust::raw_pointer_cast( keys.data() );
+    //int* gpuVals = thrust::raw_pointer_cast( values.data() );
+    //colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals, minSize);
+    colorClustersNew<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, numClusters);
+
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);
 }
