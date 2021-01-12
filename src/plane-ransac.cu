@@ -302,10 +302,14 @@ __global__ void computeInliers(GPU_Cloud_F4 pc , int* optimalModelIndex, int* mo
 }
 
 __global__ void removeInliers(GPU_Cloud_F4 pc, GPU_Cloud_F4 out, int* optimalModelIndex, int* modelPoints, float threshold, sl::float3 axis, int* newSize) {
-    if(*optimalModelIndex < 0) return;
-
     int pointIdx = threadIdx.x + blockIdx.x * blockDim.x;
-
+    if(*optimalModelIndex < 0) {
+        if(pointIdx < pc.size) {
+            out.data[pointIdx] = pc.data[pointIdx];
+            *newSize = pc.size;
+        }
+        return;
+    }
     /*
     if(pointIdx < pc.size) pc.data[pointIdx].w = 2.34184088514e-38;
     *newSize = pc.size; //pc.size/2;

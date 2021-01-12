@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
         cout << "[size] post-ransac: " << pc_f4.size << endl; 
         clearStale(pc_f4, 320/2*180/2);
 
-               
+        
         auto eceStart = high_resolution_clock::now();
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);

@@ -25,7 +25,7 @@
 
 
 using namespace std;
-#define PCD_FOLDER "../data"
+#define PCD_FOLDER "../ransac-issue"
 
 vector<string> pcd_names;
 
