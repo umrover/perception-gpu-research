@@ -6,6 +6,7 @@
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/copy.h>
+#include <thrust/binary_search.h>
 #include "common.hpp"
 
 //Helper functions
@@ -787,6 +788,91 @@ private:
     int min;
 };
 
+class smallestOnDim {
+public:
+    smallestOnDim(GPU_Cloud_F4 pc, char dim) : pc(pc), dim(dim) {}
+    __device__ __host__  int operator()(const int ptIdx1, const int ptIdx2) {
+        sl::float4 p1 = pc.data[ptIdx1];
+        sl::float4 p2 = pc.data[ptIdx2];
+        if(dim == 'x') {
+            if(p1.x < p2.x) return ptIdx1;
+            else return ptIdx2;
+        } else {
+            if(p1.y < p2.y) return ptIdx1;
+            else return ptIdx2;
+        }
+    }
+
+private:
+    char dim;
+    GPU_Cloud_F4 pc;
+};
+
+class largestOnDim {
+public:
+    largestOnDim(GPU_Cloud_F4 pc, char dim) : pc(pc), dim(dim) {}
+    __device__ __host__  int operator()(const int ptIdx1, const int ptIdx2) {
+        sl::float4 p1 = pc.data[ptIdx1];
+        sl::float4 p2 = pc.data[ptIdx2];
+        if(dim == 'x') {
+            if(p1.x > p2.x) return ptIdx1;
+            else return ptIdx2;
+        } else {
+            if(p1.y > p2.y) return ptIdx1;
+            else return ptIdx2;
+        }
+    }
+
+private:
+    char dim;
+    GPU_Cloud_F4 pc;
+};
+
+class ColorInterestPoints {
+public: 
+    ColorInterestPoints(GPU_Cloud_F4 pc) : pc(pc) {}
+    __host__ __device__
+    void operator()(int ptIdx)
+    {
+        pc.data[ptIdx].w = 0.0;
+    }
+private:
+    GPU_Cloud_F4 pc;
+};
+
+/*
+class FindInterestPoints {
+public:
+    FindInterestPoints(GPU_Cloud_F4 pc, thrust::device_vector<int> pointsSortedByCluster, thrust::device_vector<int> validClusters, 
+        thrust::device_vector<int> clusterBoundaries, thrust::device_vector<int> labelsSorted, thrust::device_vector<int> interestPoints)
+    : pc(pc), pointsSortedByCluster(pointsSortedByCluster), validClusters(validClusters), clusterBoundaries(clusterBoundaries), labelsSorted(labelsSorted),
+    interestPoints(interestPoints)
+    {
+
+    }
+
+    __device__ __host__ void operator()(const int clusterIdx) {
+        int dataStart = clusterBoundaries[clusterIdx];
+        if(!thrust::binary_search(validClusters.begin(), validClusters.end(), *(labelsSorted.begin() + dataStart))) return;
+        int dataEnd = clusterBoundaries[clusterIdx+1];
+        
+        smallestOnDim minX(pc, 'x');
+        interestPoints[] = thrust::reduce(pointsSortedByCluster.begin() + dataStart, pointsSortedByCluster.begin() + dataEnd, 0, minX);
+        
+        smallestOnDim minY(pc, 'y');
+        largestOnDim maxX(pc, 'x');
+        largestOnDim maxY(pc, 'y');
+
+    }
+private:
+    GPU_Cloud_F4 pc;
+    thrust::device_vector<int> pointsSortedByCluster;
+    thrust::device_vector<int> validClusters;
+    thrust::device_vector<int> clusterBoundaries;
+    thrust::device_vector<int> labelsSorted;
+    thrust::device_vector<int> interestPoints;
+}; */
+
 EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSize, float maxSize, GPU_Cloud_F4 pc, int partitions) 
 : tolerance{tolerance}, minSize{minSize}, maxSize{maxSize}, partitions{partitions} {
 
@@ -799,8 +885,6 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
     //Nearest Neighbor Bins
     checkStatus(cudaMalloc(&mins, sizeof(int) * 3));
     checkStatus(cudaMalloc(&maxes, sizeof(int) * 3));
-
-   // colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, nullptr);
 }
 
 
@@ -858,33 +942,58 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     int numClustersOrig = thrust::distance(keys.begin(), pair.first);
     keys.resize(numClustersOrig);
     values.resize(numClustersOrig);
-    std::cout << "CLUSTERS ORIG: " << numClustersOrig << std::endl;
 
     //Determine the boundaries for each new cluster in the array of points sorted by cluster ID
     thrust::device_vector<int> clusterBoundaries(numClustersOrig+1);
-    thrust::exclusive_scan(clusterBoundaries.begin(), clusterBoundaries.end(), clusterBoundaries.begin(), 0);
+    thrust::exclusive_scan(values.begin(), values.end(), clusterBoundaries.begin(), 0);
 
     //Now get a list of cluster ID keys that are bigger than the min size by removing those that are less than the min size
+    thrust::device_vector<int> validClusterIndicies(numClustersOrig); //temp
+    thrust::sequence(validClusterIndicies.begin(), validClusterIndicies.end(), 0); //temp
+
     is_smaller_than_min pred(minSize);
     auto keyEnd = thrust::remove_if(thrust::device, keys.begin(), keys.end(), values.begin(), pred);
+    thrust::remove_if(thrust::device, validClusterIndicies.begin(), validClusterIndicies.end(), values.begin(), pred); //temp
     thrust::remove_if(thrust::device, values.begin(), values.end(), pred);
 
+    //Determine the new number of clustesrs
     int numClusters = keyEnd - keys.begin();
     keys.resize(numClusters);
     values.resize(numClusters);
-    std::cout << "CLUSTERS NEW: " << numClusters << std::endl;
+    validClusterIndicies.resize(numClusters);
+    std::cout << "CLUSTERS COUNT: " << numClusters << std::endl;
 
+    //idea: perform a copy if on cluster-sorted points to only 
     //find interest points
-    //exculsive scan on values to give the indicies of each new cluster start in the points array 
     //for each on the array returned by the exclusive scan, going from the prev element to the cur,
     //first determine if the labels for that range are contained within the clusterIDs [keys] vector (binary search),
     //if so, then find extrema, otherwise move on
+    thrust::host_vector<int> cpuBoundaries = clusterBoundaries;
+    thrust::host_vector<int> interestPoints(numClusters*4);
+    thrust::host_vector<int> validCluseterIndiciesCPU = validClusterIndicies;
+    for(int i = 0; i < numClusters; i++) {
+        int clusterStart =  cpuBoundaries[validClusterIndicies[i]];
+        int clusterEnd = cpuBoundaries[validClusterIndicies[i]+1];
+        smallestOnDim minX(pc, 'x'); //does thrust reduce modify the vector? if so, this doesnt work 
+        interestPoints[i*4] = thrust::reduce(thrust::device, points.begin() + cpuBoundaries[validClusterIndicies[i]], points.begin()+ , 0, minX);
+       /* smallestOnDim minY(pc, 'y');
+        interestPoints[i*4+1] = thrust::reduce(thrust::device, points.begin() + cpuBoundaries[validClusterIndicies[i]], points.begin()+ cpuBoundaries[validClusterIndicies[i]+1], 0, minY);
+
+        largestOnDim maxX(pc, 'x');
+        interestPoints[i*4+2] = thrust::reduce(thrust::device, points.begin() + cpuBoundaries[validClusterIndicies[i]], points.begin()+ cpuBoundaries[validClusterIndicies[i]+1], 0, maxX);
+        largestOnDim maxY(pc, 'y');
+        interestPoints[i*4+3] = thrust::reduce(thrust::device, points.begin() + cpuBoundaries[validClusterIndicies[i]], points.begin()+ cpuBoundaries[validClusterIndicies[i]+1], 0, maxY);
+*/
+    }
 
     //Call a kernel to color the clusters for debug reasons
     int* gpuKeys = thrust::raw_pointer_cast( keys.data() );
-    //int* gpuVals = thrust::raw_pointer_cast( values.data() );
-    //colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals, minSize);
     colorClustersNew<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, numClusters);
+
+    //Color interest pts
+    thrust::device_vector<int> interestPointsGPU = interestPoints;
+    ColorInterestPoints color(pc);
+    thrust::for_each(thrust::device, interestPointsGPU.begin(), interestPointsGPU.end(), color);
 
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);
