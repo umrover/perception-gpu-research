@@ -13,6 +13,7 @@
 #include <thread>
 #include "pass-through.hpp"
 #include "euclidean-cluster.hpp"
+#include "driver.hpp"
 
 using namespace std::chrono; 
 
@@ -26,6 +27,7 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 //Zed camera and viewer
 sl::Camera zed;
 GLViewer viewer;
+int guiK = 0;
 
 RansacPlane::Plane planePoints;
 EuclideanClusterExtractor::ObsReturn obstacles;
@@ -45,6 +47,15 @@ void spinZedViewer() {
         updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
       // updateObjectBoxes(1, minX, maxX, minY, maxY, minZ, maxZ );
     }
+}
+
+void nextFrame() {
+    guiK++;
+    cout << guiK << endl;
+}
+void prevFrame() {
+    guiK--;
+    cout << guiK << endl;
 }
 
 
@@ -95,7 +106,7 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        setPointCloud( /*k*/ 61 );
+        setPointCloud( guiK /*61*/ );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);

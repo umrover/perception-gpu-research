@@ -1,4 +1,5 @@
 #include "GLViewer.hpp"
+#include "driver.hpp"
 
 
 
@@ -276,6 +277,10 @@ void GLViewer::update() {
         currentInstance_->exit();
         return;
     }
+
+    if (keyStates_['d'] == KEY_STATE::UP) nextFrame();
+    if (keyStates_['a'] == KEY_STATE::UP) prevFrame();
+
 
     // Rotate camera with mouse
     if (mouseButton_[MOUSE_BUTTON::LEFT]) {
