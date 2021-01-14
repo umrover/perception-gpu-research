@@ -21,7 +21,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-//#define USE_PCL
+#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -79,10 +79,11 @@ int main(int argc, char** argv) {
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
+        usleep(5e5);
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        setPointCloud(k);
+        setPointCloud( k );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
