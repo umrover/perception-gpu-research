@@ -144,13 +144,18 @@ void updateObjectBoxes(int num, float* minX, float* maxX, float* minY, float* ma
     sl::float3 c(0.0, 1.0, 0.0);
 
     for(int i = 0; i < num; i++) {
-        objectBoxes.push_back(new Simple3DObject(sl::Translation(0, 0, 0), true));
         float xMin = minX[i];
         float xMax = maxX[i];
         float yMin = minY[i];
         float yMax = maxY[i];
         float zMin = minZ[i];
         float zMax = maxZ[i];
+        if(zMax < 0.01) {
+            xMin = 0; xMax = 0; yMin = 0; yMax = 0; zMin = 0; zMax = 0;
+        };
+
+        objectBoxes.push_back(new Simple3DObject(sl::Translation(0, 0, 0), true));
+
 
         sl::float3 botLeftFront(xMin, yMin, zMin);
         sl::float3 botRightFront(xMax, yMin, zMin);
