@@ -802,7 +802,7 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
 
    // colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, nullptr);
 }
-
+//
 
 //perhaps use dynamic parallelism 
 void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
