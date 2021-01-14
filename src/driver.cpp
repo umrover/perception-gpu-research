@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        setPointCloud( guiK /*61*/ );
+        setPointCloud( 61+ guiK /*61*/ );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
         //viewer.updatePointCloud(pclTest);
-        
+        //passZ.run(orig);
         viewer.updatePointCloud(orig);
 
 

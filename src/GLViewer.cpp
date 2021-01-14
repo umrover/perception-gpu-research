@@ -154,7 +154,7 @@ void updateObjectBoxes(int num, float* minX, float* maxX, float* minY, float* ma
         if(zMax < 0.01) {
             xMin = 0; xMax = 0; yMin = 0; yMax = 0; zMin = 0; zMax = 0;
         };
-
+        //if(zMax != 0) std::cout << "max x: " << xMax << std::endl;
         objectBoxes.push_back(new Simple3DObject(sl::Translation(0, 0, 0), true));
 
 

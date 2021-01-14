@@ -788,6 +788,7 @@ __device__ __forceinline__ float atomicMinFloat (float * addr, float value) {
     return old;
 }
 
+
 __device__ __forceinline__ float atomicMaxFloat (float * addr, float value) {
     float old;
     old = (value >= 0) ? __int_as_float(atomicMax((int *)addr, __float_as_int(value))) :
@@ -972,11 +973,11 @@ EuclideanClusterExtractor::ObsReturn EuclideanClusterExtractor::extractClusters(
     cudaMalloc(&minZ, sizeof(float)*numClustersOrig);
     cudaMalloc(&maxZ, sizeof(float)*numClustersOrig);
     thrust::fill(thrust::device, minX, minX + numClustersOrig, std::numeric_limits<float>::max());
-    thrust::fill(thrust::device, maxX, maxX + numClustersOrig, std::numeric_limits<float>::min());
+    thrust::fill(thrust::device, maxX, maxX + numClustersOrig, -std::numeric_limits<float>::max());
     thrust::fill(thrust::device, minY, minY + numClustersOrig, std::numeric_limits<float>::max());
-    thrust::fill(thrust::device, maxY, maxY + numClustersOrig, std::numeric_limits<float>::min());
+    thrust::fill(thrust::device, maxY, maxY + numClustersOrig, -std::numeric_limits<float>::max());
     thrust::fill(thrust::device, minZ, minZ + numClustersOrig, std::numeric_limits<float>::max());
-    thrust::fill(thrust::device, maxZ, maxZ + numClustersOrig, std::numeric_limits<float>::min());
+    thrust::fill(thrust::device, maxZ, maxZ + numClustersOrig, -std::numeric_limits<float>::max());
 
     /*
     //Now get a list of cluster ID keys that are bigger than the min size by removing those that are less than the min size
@@ -1018,8 +1019,6 @@ EuclideanClusterExtractor::ObsReturn EuclideanClusterExtractor::extractClusters(
     cudaMemcpy(maxYCPU, maxY, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
     cudaMemcpy(minZCPU, minZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
     cudaMemcpy(maxZCPU, maxZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
-
-    //colorClustersNew<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, numClusters);
 
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);
