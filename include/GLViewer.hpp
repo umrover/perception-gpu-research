@@ -258,5 +258,5 @@ private:
 };
 
 void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3, float scale);
-
+void updateObjectBoxes(int num, float* minX, float* maxX, float* minY, float* maxY, float* minZ, float* maxZ);
 #endif /* __VIEWER_INCLUDE__ */

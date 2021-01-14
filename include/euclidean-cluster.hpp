@@ -12,6 +12,16 @@ How this ultimately should work:
 
 class EuclideanClusterExtractor {
     public:
+        struct ObsReturn {
+            int size;
+            float* minX;
+            float* maxX;
+            float* minY;
+            float* maxY;
+            float* minZ;
+            float* maxZ;
+            
+        };
         /*
         REQUIRES: 
         - Zed point cloud allocated on GPU
@@ -35,7 +45,7 @@ class EuclideanClusterExtractor {
         EFFECTS:
         - Extracts clusters 
         */
-        void extractClusters(GPU_Cloud_F4 pc);
+        ObsReturn extractClusters(GPU_Cloud_F4 pc);
 
     private:
         //user given model parms

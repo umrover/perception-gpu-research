@@ -851,7 +851,7 @@ __global__ void colorExtrema(GPU_Cloud_F4 pc, int* values, int minSize, int* lab
     pc.data[place*2] = sl::float4(minX[clusterIdx], (minY[clusterIdx] + maxY[clusterIdx])/2, minZ[clusterIdx], 0.0);
     pc.data[place*2+1] = sl::float4(maxX[clusterIdx], (minY[clusterIdx] + maxY[clusterIdx])/2, minZ[clusterIdx], 0.0);
         
-
+    //serailze the extrema into a float4 vector using the "place"
 }
 
 __global__ void colorClustersNew(GPU_Cloud_F4 pc, int* labels, int* keys, int numClusters) {
@@ -900,8 +900,10 @@ EuclideanClusterExtractor::EuclideanClusterExtractor(float tolerance, int minSiz
 
 
 //perhaps use dynamic parallelism 
-void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
-    if(pc.size == 0) return;
+EuclideanClusterExtractor::ObsReturn EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
+    ObsReturn empty;
+    empty.size = 0;
+    if(pc.size == 0) return empty;
     //set frontier arrays appropriately [done in build graph]
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
@@ -1003,6 +1005,20 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     cudaMemset(validClustersCount, 0, sizeof(int));
     //colorExtrema<<<ceilDiv(numClustersOrig, MAX_THREADS), MAX_THREADS >>>(pc, gpuVals, minSize, labels, numClustersOrig, validClustersCount, minX, maxX, minY, maxY, minZ, maxZ);
 
+    float *minXCPU, *maxXCPU, *minYCPU, *maxYCPU, *minZCPU, *maxZCPU; 
+    minXCPU = (float*) malloc(sizeof(float)*numClustersOrig);
+    maxXCPU = (float*) malloc(sizeof(float)*numClustersOrig);
+    minYCPU = (float*) malloc(sizeof(float)*numClustersOrig);
+    maxYCPU = (float*) malloc(sizeof(float)*numClustersOrig);
+    minZCPU = (float*) malloc(sizeof(float)*numClustersOrig);
+    maxZCPU = (float*) malloc(sizeof(float)*numClustersOrig);
+    cudaMemcpy(minXCPU, minX, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
+    cudaMemcpy(maxXCPU, maxX, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
+    cudaMemcpy(minYCPU, minY, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
+    cudaMemcpy(maxYCPU, maxY, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
+    cudaMemcpy(minZCPU, minZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
+    cudaMemcpy(maxZCPU, maxZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
+
     //colorClustersNew<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, numClusters);
 
     checkStatus(cudaDeviceSynchronize()); //not needed?
@@ -1017,6 +1033,16 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     int validClustersCPU;
     cudaMemcpy(&validClustersCPU, validClustersCount, sizeof(int), cudaMemcpyDeviceToHost);
     std::cout << "valid cluster size: " << validClustersCPU << std::endl;
+
+    ObsReturn obsReturn;
+    obsReturn.size = numClustersOrig;
+    obsReturn.minX = minXCPU;
+    obsReturn.maxX = maxXCPU;
+    obsReturn.minY = minYCPU;
+    obsReturn.maxY = maxYCPU;
+    obsReturn.minZ = minZCPU;
+    obsReturn.maxZ = maxZCPU;
+    return obsReturn;
 }
 
 EuclideanClusterExtractor::~EuclideanClusterExtractor() {

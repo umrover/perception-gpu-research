@@ -135,8 +135,71 @@ void updateRansacPlane(sl::float3 p1, sl::float3 p2, sl::float3 p3, float scale)
     plane->pushToGPU();
 }
 
-GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
+std::vector<Simple3DObject*> objectBoxes;
 
+void updateObjectBoxes(int num, float* minX, float* maxX, float* minY, float* maxY, float* minZ, float* maxZ) { //int num, float* minX, float* maxX
+    for(int i = 0; i < objectBoxes.size(); i++) delete objectBoxes[i];
+    objectBoxes.clear();
+    
+    sl::float3 c(0.0, 1.0, 0.0);
+
+    for(int i = 0; i < num; i++) {
+        objectBoxes.push_back(new Simple3DObject(sl::Translation(0, 0, 0), true));
+        float xMin = minX[i];
+        float xMax = maxX[i];
+        float yMin = minY[i];
+        float yMax = maxY[i];
+        float zMin = minZ[i];
+        float zMax = maxZ[i];
+
+        sl::float3 botLeftFront(xMin, yMin, zMin);
+        sl::float3 botRightFront(xMax, yMin, zMin);
+        sl::float3 topRightFront(xMax, yMax, zMin);
+        sl::float3 topLeftFront(xMin, yMax, zMin);
+
+        sl::float3 botLeftBack(xMin, yMin, zMax);
+        sl::float3 botRightBack(xMax, yMin, zMax);
+        sl::float3 topRightBack(xMax, yMax, zMax);
+        sl::float3 topLeftBack(xMin, yMax, zMax);
+
+        //front
+        objectBoxes[i]->addFace(botLeftFront, botRightFront, topRightFront, c); 
+        objectBoxes[i]->addFace(botLeftFront, topLeftFront, topRightFront, c); 
+        //back
+        objectBoxes[i]->addFace(botLeftBack, botRightBack, topRightBack, c);  
+        objectBoxes[i]->addFace(botLeftBack, topLeftBack, topRightBack, c); 
+        //left
+        objectBoxes[i]->addFace(botLeftBack, botLeftFront, topLeftFront, c); 
+        objectBoxes[i]->addFace(botLeftBack, botLeftFront, topLeftBack, c); 
+        //right
+        objectBoxes[i]->addFace(botRightBack, botRightFront, topRightFront, c); 
+        objectBoxes[i]->addFace(botRightBack, botRightFront, topRightBack, c); 
+       
+
+        objectBoxes[i]->setDrawingType(GL_TRIANGLES);
+        objectBoxes[i]->pushToGPU();
+
+    } 
+
+/*
+    objectBoxes.push_back(new Simple3DObject(sl::Translation(0, 0, 0), true));
+    sl::float3 p1(0, 0, 0);
+    sl::float3 p2(50, 50, 0);
+    sl::float3 p3(-50, 0, 0);
+
+    objectBoxes[0]->addFace(p1, p2, p3, sl::float3(0.0, 1.0, 0.0) );
+
+    objectBoxes[0]->setDrawingType(GL_TRIANGLES);
+    objectBoxes[0]->pushToGPU();
+    /*
+    for(int i = 0; i < objectBoxes.size(); i++) {
+        if(objectBoxes[i] != nullptr) delete objectBoxes[i];
+        objectBoxes[i] = 
+    }*/
+}
+
+GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
+    
     glutInit(&argc, argv);
     int wnd_w = glutGet(GLUT_SCREEN_WIDTH);
     int wnd_h = glutGet(GLUT_SCREEN_HEIGHT) *0.9;
@@ -259,6 +322,18 @@ void GLViewer::draw() {
         glUniformMatrix4fv(shMVPMatrixLoc_, 1, GL_FALSE, sl::Transform::transpose(vpMatrix * plane->getModelMatrix()).m);
         plane->draw();
     }
+
+    glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+    glLineWidth(3);
+    //object boxes test
+    for(int i = 0; i < objectBoxes.size(); i++) {
+        if(objectBoxes[i] != nullptr) {
+        glUniformMatrix4fv(shMVPMatrixLoc_, 1, GL_FALSE, sl::Transform::transpose(vpMatrix * objectBoxes[i]->getModelMatrix()).m);
+        objectBoxes[i]->draw();
+        }
+    }
+    glLineWidth(1);
+
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glUseProgram(0);

@@ -27,10 +27,23 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 sl::Camera zed;
 GLViewer viewer;
 
+RansacPlane::Plane planePoints;
+EuclideanClusterExtractor::ObsReturn obstacles;
+
 //This is a thread to just spin the zed viewer
 void spinZedViewer() {
     while(viewer.isAvailable()) {
         std::this_thread::sleep_for (std::chrono::milliseconds(10));
+     //   updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
+     
+    /*   float minX[] = {0.0};
+        float maxX[] = {100.0};
+        float minY[] = {0.0};
+        float maxY[] = {100.0};
+        float minZ[] = {0.0};
+        float maxZ[] = {100.0}; */
+        updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
+      // updateObjectBoxes(1, minX, maxX, minY, maxY, minZ, maxZ );
     }
 }
 
@@ -79,11 +92,10 @@ int main(int argc, char** argv) {
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
-        usleep(5e5);
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        setPointCloud( k );
+        setPointCloud( /*k*/ 61 );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
@@ -120,7 +132,7 @@ int main(int argc, char** argv) {
         cout << "[size] pre-ransac: " << pc_f4.size << endl; 
         //Perform RANSAC Plane segmentation to find the ground
         auto ransacStart = high_resolution_clock::now();
-        RansacPlane::Plane planePoints = ransac.computeModel(pc_f4, true);
+        planePoints = ransac.computeModel(pc_f4, true);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
@@ -132,7 +144,7 @@ int main(int argc, char** argv) {
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
         auto eceStart = high_resolution_clock::now();
-        ece.extractClusters(pc_f4);
+        obstacles = ece.extractClusters(pc_f4);
         auto eceStop = high_resolution_clock::now();
         ece.freeBins();
         
@@ -149,10 +161,9 @@ int main(int argc, char** argv) {
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
-        viewer.updatePointCloud(pclTest);
+        //viewer.updatePointCloud(pclTest);
         
-        //viewer.updatePointCloud(orig);
-       // updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
+        viewer.updatePointCloud(orig);
 
 
         #endif
