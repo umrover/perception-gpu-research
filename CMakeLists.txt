@@ -34,6 +34,7 @@ add_definitions(${PCL_DEFINITIONS})
 #add_executable(test-kernel src/test-kernel.cu)
 #set_property(TARGET test-kernel PROPERTY CUDA_STANDARD 11)
 
+
 add_executable (driver src/test-filter.cu src/driver.cpp src/GLViewer.cpp src/common.cu src/plane-ransac.cu src/pcl.cpp src/euclidean-cluster.cu src/pass-through.cu)
 target_link_libraries (driver Eigen3::Eigen)
 target_link_libraries (driver ${ZED_LIBRARIES})
@@ -44,5 +45,8 @@ target_link_libraries(driver
                         ${OPENGL_LIBRARIES}
                         ${GLUT_LIBRARY}
                         ${GLEW_LIBRARIES})
-
+target_compile_options(driver PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+                       -res-usage
+                       --use_fast_math
+                       >)
 message("test ${CMAKE_CURRENT_SOURCE_DIR}")

@@ -664,6 +664,56 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
     f2[ptIdx] = false;
 }
 
+__global__ void determineGraphStructureKernelN2(GPU_Cloud_F4 pc, float tolerance, int* listStart) {
+    int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+
+    sl::float3 pt = pc.data[ptIdx];
+    int neighborCount = 0;
+    
+    //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
+    for(int i = 0; i < pc.size; i++) {
+        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
+        //this is a neighbor
+        if( dvec.norm() < tolerance && i != ptIdx) {
+            neighborCount++;
+        }
+    }
+    listStart[ptIdx] = neighborCount;
+
+    //we must do an exclusive scan using thrust after this kernel
+    //printf("%d: %d \n",ptIdx, neighborCount );
+}
+
+
+/* This kernel builds the graph 
+Fairly standard adjacency list structure. 
+*/
+__global__ void buildGraphKernelN2(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2) {
+    int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+
+    sl::float3 pt = pc.data[ptIdx];
+    int neighborCount = 0;
+    //get the adjacency list for this point
+    int* list = neighborLists + listStart[ptIdx];
+    
+    //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
+    for(int i = 0; i < pc.size; i++) {
+
+        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
+        //this is a neighbor
+        if( dvec.norm() < tolerance && i != ptIdx) {
+            list[neighborCount] = i;
+            neighborCount++;
+        }
+    }
+    
+    labels[ptIdx] = ptIdx;
+    f1[ptIdx] = true;
+    f2[ptIdx] = false;
+}
+
 /*
 this kernel propogates labels, it must be called in a loop until its flag "m" is false, indicating
 no more changes are pending. 
@@ -810,8 +860,12 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //set frontier arrays appropriately [done in build graph]
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
-    determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, binCount, mins, maxes, partitions);
+    std::cerr <<"Determining Graph Structure\n";
+    //determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, binCount, mins, maxes, partitions);
+    determineGraphStructureKernelN2<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart);
+    std::cerr <<"Structure Determined\n";
     thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
+    checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());
     int totalAdjanecyListsSize;
     /*//debugint* temp = (int*) malloc(sizeof(int)*(pc.size+1));
@@ -819,11 +873,15 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     for(int i = 0; i < pc.size+1; i++) std::cout << "ex scan: " << temp[i] << std::endl; */
     checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size], sizeof(int), cudaMemcpyDeviceToHost));
     //std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
-    
+    std::cerr<<"Building graph kernel\n";
     cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
-    buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
-                                        bins, binCount, mins, maxes, partitions);
+    //buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
+      //                                  bins, binCount, mins, maxes, partitions);
+    buildGraphKernelN2<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
+    std::cerr<<"Graph kernel built\n";
+    checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());
+    
 
     
     bool stillGoingCPU = true;    

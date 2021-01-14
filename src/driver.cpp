@@ -21,7 +21,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -127,12 +127,14 @@ int main(int argc, char** argv) {
         clearStale(pc_f4, 320/2*180/2);
 
         
-        auto eceStart = high_resolution_clock::now();
+        
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
+        auto eceStart = high_resolution_clock::now();
         ece.extractClusters(pc_f4);
-        ece.freeBins();
         auto eceStop = high_resolution_clock::now();
+        ece.freeBins();
+        
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
         
