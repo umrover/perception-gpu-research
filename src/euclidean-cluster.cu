@@ -810,8 +810,11 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //set frontier arrays appropriately [done in build graph]
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
+    std::cerr <<"Determining Graph Structure\n";
     determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, binCount, mins, maxes, partitions);
+    std::cerr <<"Structure Determined\n";
     thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
+    checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());
     int totalAdjanecyListsSize;
     /*//debugint* temp = (int*) malloc(sizeof(int)*(pc.size+1));
@@ -819,11 +822,14 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     for(int i = 0; i < pc.size+1; i++) std::cout << "ex scan: " << temp[i] << std::endl; */
     checkStatus(cudaMemcpy(&totalAdjanecyListsSize, &listStart[pc.size], sizeof(int), cudaMemcpyDeviceToHost));
     //std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
-    
+    std::cerr<<"Building graph kernel\n";
     cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
     buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
                                         bins, binCount, mins, maxes, partitions);
+    std::cerr<<"Graph kernel built\n";
+    checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());
+    
 
     
     bool stillGoingCPU = true;    
