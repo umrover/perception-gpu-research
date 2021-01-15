@@ -3,6 +3,7 @@
 #ifndef COMMON
 #define COMMON
 
+#define PI 3.141592 
 #define CHANNEL 4
 #define BLOCK_SIZE 1024
 
@@ -46,6 +47,7 @@ void copyCloud(GPU_Cloud_F4 &to, GPU_Cloud_F4 &from);
 
 void clearStale(GPU_Cloud_F4 &cloud, int maxSize);
 
+void testClearPath();
 
 //Remove all the points in cloud except those at the given indicies 
 GPU_Cloud removeAllExcept(GPU_Cloud pc, GPU_Indicies indicies);
