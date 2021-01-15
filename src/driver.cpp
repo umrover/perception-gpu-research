@@ -22,7 +22,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-#define USE_PCL
+//#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -112,8 +112,8 @@ int main(int argc, char** argv) {
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
 
         //DEBUG STEP, safe to remove if causing slowness - ash
-        sl::Mat orig; 
-        pclTest.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
+       // sl::Mat orig; 
+       // pclTest.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
         #endif
 
         //Grab cloud from the Zed camera
@@ -139,6 +139,10 @@ int main(int argc, char** argv) {
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
         cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
+
+        //DEBUG STEP, safe to remove if causing slowness - ash
+        //sl::Mat orig; 
+        //pclTest.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
        
         cout << "[size] pre-ransac: " << pc_f4.size << endl; 
         //Perform RANSAC Plane segmentation to find the ground
@@ -150,7 +154,7 @@ int main(int argc, char** argv) {
         cout << "[size] post-ransac: " << pc_f4.size << endl; 
         clearStale(pc_f4, 320/2*180/2);
 
-        
+        /*
         
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
@@ -161,7 +165,7 @@ int main(int argc, char** argv) {
         
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        */
 
         #ifndef USE_PCL
         viewer.isAvailable();
@@ -172,9 +176,9 @@ int main(int argc, char** argv) {
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
-        //viewer.updatePointCloud(pclTest);
-        //passZ.run(orig);
-        viewer.updatePointCloud(orig);
+        viewer.updatePointCloud(pclTest);
+
+        //viewer.updatePointCloud(orig);
 
 
         #endif
