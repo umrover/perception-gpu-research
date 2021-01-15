@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
         cout << "[size] post-ransac: " << pc_f4.size << endl; 
         clearStale(pc_f4, 320/2*180/2);
 
-        /*
+        
         
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
         
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
-        */
+        
 
         #ifndef USE_PCL
         viewer.isAvailable();
