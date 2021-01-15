@@ -7,6 +7,7 @@
 #include <thrust/sort.h>
 #include <thrust/copy.h>
 #include "common.hpp"
+#include <limits>     //for std::numeric_limits<> 
 
 //Helper functions
 __device__ float getFloatData(int axis, sl::float4 &val) {
@@ -664,6 +665,56 @@ __global__ void buildGraphKernel(GPU_Cloud_F4 pc, float tolerance, int* neighbor
     f2[ptIdx] = false;
 }
 
+__global__ void determineGraphStructureKernelN2(GPU_Cloud_F4 pc, float tolerance, int* listStart) {
+    int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+
+    sl::float3 pt = pc.data[ptIdx];
+    int neighborCount = 0;
+    
+    //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
+    for(int i = 0; i < pc.size; i++) {
+        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
+        //this is a neighbor
+        if( dvec.norm() < tolerance && i != ptIdx) {
+            neighborCount++;
+        }
+    }
+    listStart[ptIdx] = neighborCount;
+
+    //we must do an exclusive scan using thrust after this kernel
+    //printf("%d: %d \n",ptIdx, neighborCount );
+}
+
+
+/* This kernel builds the graph 
+Fairly standard adjacency list structure. 
+*/
+__global__ void buildGraphKernelN2(GPU_Cloud_F4 pc, float tolerance, int* neighborLists, int* listStart, int* labels, bool* f1, bool* f2) {
+    int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(ptIdx >= pc.size) return;
+
+    sl::float3 pt = pc.data[ptIdx];
+    int neighborCount = 0;
+    //get the adjacency list for this point
+    int* list = neighborLists + listStart[ptIdx];
+    
+    //horrible slow way of doing this that is TEMPORARY --> please switch to radix sorted bins
+    for(int i = 0; i < pc.size; i++) {
+
+        sl::float3 dvec = (pt - sl::float3(pc.data[i]));
+        //this is a neighbor
+        if( dvec.norm() < tolerance && i != ptIdx) {
+            list[neighborCount] = i;
+            neighborCount++;
+        }
+    }
+    
+    labels[ptIdx] = ptIdx;
+    f1[ptIdx] = true;
+    f2[ptIdx] = false;
+}
+
 /*
 this kernel propogates labels, it must be called in a loop until its flag "m" is false, indicating
 no more changes are pending. 
@@ -729,8 +780,24 @@ __global__ void propogateLabels(GPU_Cloud_F4 pc, int* neighborLists, int* listSt
     }*/
 }
 
+__device__ __forceinline__ float atomicMinFloat (float * addr, float value) {
+    float old;
+    old = (value >= 0) ? __int_as_float(atomicMin((int *)addr, __float_as_int(value))) :
+         __uint_as_float(atomicMax((unsigned int *)addr, __float_as_uint(value)));
+
+    return old;
+}
+
+__device__ __forceinline__ float atomicMaxFloat (float * addr, float value) {
+    float old;
+    old = (value >= 0) ? __int_as_float(atomicMax((int *)addr, __float_as_int(value))) :
+         __uint_as_float(atomicMin((unsigned int *)addr, __float_as_uint(value)));
+
+    return old;
+}
+
 //this debug kernel colors points based on their label
-__global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* values, int minCloudSize) {
+__global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* values, int minCloudSize, int numClusters, float* minX, float* maxX, float* minY, float* maxY, float* minZ, float* maxZ) {
     int ptIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(ptIdx >= pc.size) return;
 
@@ -757,6 +824,34 @@ __global__ void colorClusters(GPU_Cloud_F4 pc, int* labels, int* keys, int* valu
     float yellow = 9.18340948595e-41;
     
     pc.data[ptIdx].w = yellow+0.0000000000000001*labels[ptIdx]*4;
+    
+    //X
+    atomicMinFloat(&minX[i], pc.data[ptIdx].x);
+    atomicMaxFloat(&maxX[i], pc.data[ptIdx].x);
+
+    //Y
+    atomicMinFloat(&minY[i], pc.data[ptIdx].y);
+    atomicMaxFloat(&maxY[i], pc.data[ptIdx].y);
+
+    //Z
+    atomicMinFloat(&minZ[i], pc.data[ptIdx].z);
+    atomicMaxFloat(&maxZ[i], pc.data[ptIdx].z);
+}
+
+//this is practically serial, can we just color using OpenGL functions
+__global__ void colorExtrema(GPU_Cloud_F4 pc, int* values, int minSize, int* labels, int numClustersOrig, int* validClustersCount, float* minX, float* maxX,  float* minY, float* maxY, float* minZ, float* maxZ) {
+    int clusterIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(clusterIdx >= numClustersOrig) return;
+
+    int place = 0;
+    if(values[clusterIdx] > minSize) place = atomicAdd(validClustersCount, 1);
+    else return;
+
+  
+    pc.data[place*2] = sl::float4(minX[clusterIdx], (minY[clusterIdx] + maxY[clusterIdx])/2, minZ[clusterIdx], 0.0);
+    pc.data[place*2+1] = sl::float4(maxX[clusterIdx], (minY[clusterIdx] + maxY[clusterIdx])/2, minZ[clusterIdx], 0.0);
+        
+
 }
 
 __global__ void colorClustersNew(GPU_Cloud_F4 pc, int* labels, int* keys, int numClusters) {
@@ -811,7 +906,8 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //checkStatus(cudaMemsetAsync(f1, 1, sizeof(pc.size)));
     //checkStatus(cudaMemsetAsync(f2, 0, sizeof(pc.size)));
     std::cerr <<"Determining Graph Structure\n";
-    determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, binCount, mins, maxes, partitions);
+    //determineGraphStructureKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart, bins, binCount, mins, maxes, partitions);
+    determineGraphStructureKernelN2<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, listStart);
     std::cerr <<"Structure Determined\n";
     thrust::exclusive_scan(thrust::device, listStart, listStart+pc.size+1, listStart, 0);
     checkStatus(cudaGetLastError());
@@ -824,8 +920,9 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     //std::cout << "total adj size: " << totalAdjanecyListsSize << std::endl;
     std::cerr<<"Building graph kernel\n";
     cudaMalloc(&neighborLists, sizeof(int)*totalAdjanecyListsSize);
-    buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
-                                        bins, binCount, mins, maxes, partitions);
+    //buildGraphKernel<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2,
+      //                                  bins, binCount, mins, maxes, partitions);
+    buildGraphKernelN2<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, tolerance, neighborLists, listStart, labels, f1, f2);
     std::cerr<<"Graph kernel built\n";
     checkStatus(cudaGetLastError());
     checkStatus(cudaDeviceSynchronize());
@@ -855,21 +952,31 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     thrust::device_vector<int> count(pc.size, 1); //buffer of all 1s. Len(N)
     thrust::device_vector<int> keys(pc.size); //Each clusters unique ID in ascending order Len(C)
     thrust::device_vector<int> values(pc.size); //The number of points in each cluster in ascending order by ID. Len(C)
-    thrust::device_vector<int> points(pc.size); //PC point indexes sorted by cluster. Len(N)
+
     thrust::copy(thrust::device, labels, labels+pc.size, labelsSorted.begin()); //first make the labels sorted contain the labels in order of points
-    thrust::sort_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), points.begin()); //now sort the labels by their label idx, and sort points corresponding
+    thrust::sort(thrust::device, labelsSorted.begin(), labelsSorted.end()); //now sort the labels by their label idx, 
     auto pair = thrust::reduce_by_key(thrust::device, labelsSorted.begin(), labelsSorted.end(), count.begin(), keys.begin(), values.begin()); //remove duplicate labels and determine the number of points belonging to each label    
    
     //Determine how many clusters there actually are
+    
     int numClustersOrig = thrust::distance(keys.begin(), pair.first);
-    keys.resize(numClustersOrig);
-    values.resize(numClustersOrig);
-    std::cout << "CLUSTERS ORIG: " << numClustersOrig << std::endl;
+    std::cout << "CLUSTERS ORIG: " << numClustersOrig << std::endl; 
 
-    //Determine the boundaries for each new cluster in the array of points sorted by cluster ID
-    thrust::device_vector<int> clusterBoundaries(numClustersOrig+1);
-    thrust::exclusive_scan(clusterBoundaries.begin(), clusterBoundaries.end(), clusterBoundaries.begin(), 0);
+    float *minX, *maxX, *minY, *maxY, *minZ, *maxZ; 
+    cudaMalloc(&minX, sizeof(float)*numClustersOrig);
+    cudaMalloc(&maxX, sizeof(float)*numClustersOrig);
+    cudaMalloc(&minY, sizeof(float)*numClustersOrig);
+    cudaMalloc(&maxY, sizeof(float)*numClustersOrig);
+    cudaMalloc(&minZ, sizeof(float)*numClustersOrig);
+    cudaMalloc(&maxZ, sizeof(float)*numClustersOrig);
+    thrust::fill(thrust::device, minX, minX + numClustersOrig, std::numeric_limits<float>::max());
+    thrust::fill(thrust::device, maxX, maxX + numClustersOrig, std::numeric_limits<float>::min());
+    thrust::fill(thrust::device, minY, minY + numClustersOrig, std::numeric_limits<float>::max());
+    thrust::fill(thrust::device, maxY, maxY + numClustersOrig, std::numeric_limits<float>::min());
+    thrust::fill(thrust::device, minZ, minZ + numClustersOrig, std::numeric_limits<float>::max());
+    thrust::fill(thrust::device, maxZ, maxZ + numClustersOrig, std::numeric_limits<float>::min());
 
+    /*
     //Now get a list of cluster ID keys that are bigger than the min size by removing those that are less than the min size
     is_smaller_than_min pred(minSize);
     auto keyEnd = thrust::remove_if(thrust::device, keys.begin(), keys.end(), values.begin(), pred);
@@ -878,7 +985,7 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
     int numClusters = keyEnd - keys.begin();
     keys.resize(numClusters);
     values.resize(numClusters);
-    std::cout << "CLUSTERS NEW: " << numClusters << std::endl;
+    std::cout << "CLUSTERS NEW: " << numClusters << std::endl; */
 
     //find interest points
     //exculsive scan on values to give the indicies of each new cluster start in the points array 
@@ -888,12 +995,28 @@ void EuclideanClusterExtractor::extractClusters(GPU_Cloud_F4 pc) {
 
     //Call a kernel to color the clusters for debug reasons
     int* gpuKeys = thrust::raw_pointer_cast( keys.data() );
-    //int* gpuVals = thrust::raw_pointer_cast( values.data() );
-    //colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals, minSize);
-    colorClustersNew<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, numClusters);
+    int* gpuVals = thrust::raw_pointer_cast( values.data() );
+    colorClusters<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, gpuVals, minSize, numClustersOrig, minX, maxX, minY, maxY, minZ, maxZ);
+
+    int * validClustersCount;
+    cudaMalloc(&validClustersCount, sizeof(int));
+    cudaMemset(validClustersCount, 0, sizeof(int));
+    //colorExtrema<<<ceilDiv(numClustersOrig, MAX_THREADS), MAX_THREADS >>>(pc, gpuVals, minSize, labels, numClustersOrig, validClustersCount, minX, maxX, minY, maxY, minZ, maxZ);
+
+    //colorClustersNew<<<ceilDiv(pc.size, MAX_THREADS), MAX_THREADS>>>(pc, labels, gpuKeys, numClusters);
 
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);
+    cudaFree(minX);
+    cudaFree(maxX);
+    cudaFree(minY);
+    cudaFree(maxY);
+    cudaFree(minZ);
+    cudaFree(maxZ);
+
+    int validClustersCPU;
+    cudaMemcpy(&validClustersCPU, validClustersCount, sizeof(int), cudaMemcpyDeviceToHost);
+    std::cout << "valid cluster size: " << validClustersCPU << std::endl;
 }
 
 EuclideanClusterExtractor::~EuclideanClusterExtractor() {

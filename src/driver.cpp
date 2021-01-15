@@ -79,10 +79,11 @@ int main(int argc, char** argv) {
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
+        usleep(5e5);
 
         //Grab cloud from PCD file
         #ifdef USE_PCL 
-        setPointCloud(k);
+        setPointCloud( k );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
@@ -127,12 +128,14 @@ int main(int argc, char** argv) {
         clearStale(pc_f4, 320/2*180/2);
 
         
-        auto eceStart = high_resolution_clock::now();
+        
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
+        auto eceStart = high_resolution_clock::now();
         ece.extractClusters(pc_f4);
-        ece.freeBins();
         auto eceStop = high_resolution_clock::now();
+        ece.freeBins();
+        
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
         
