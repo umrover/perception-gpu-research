@@ -204,6 +204,20 @@ void updateObjectBoxes(int num, float* minX, float* maxX, float* minY, float* ma
     }*/
 }
 
+Simple3DObject projPath;
+int i = 0; 
+
+void updateProjectedLines() {
+    sl::float3 start(584,0,0);
+    sl::float3 end(584+i,0,7000);
+    projPath = Simple3DObject(sl::Translation(0, 0, 0), true);
+    i = (i+10)%1000;
+    sl::float3 c(0.0, 0.0, 1.0);
+    projPath.addFace(start,start,end, c);
+    projPath.setDrawingType(GL_TRIANGLES);
+    projPath.pushToGPU();
+}
+
 GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
     
     glutInit(&argc, argv);
@@ -344,6 +358,9 @@ void GLViewer::draw() {
     }
     glLineWidth(1);
 
+    //Draw a line
+    glUniformMatrix4fv(shMVPMatrixLoc_, 1, GL_FALSE, sl::Transform::transpose(vpMatrix * projPath.getModelMatrix()).m);
+    projPath.draw();
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glUseProgram(0);

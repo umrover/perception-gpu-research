@@ -1020,6 +1020,28 @@ EuclideanClusterExtractor::ObsReturn EuclideanClusterExtractor::extractClusters(
     cudaMemcpy(minZCPU, minZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
     cudaMemcpy(maxZCPU, maxZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
 
+    float* leftBearing;
+    float* rightBearing;
+
+    cudaMalloc(&leftBearing, sizeof(float));
+    cudaMalloc(&rightBearing, sizeof(float));
+    
+    //Laucnh kernels to find clear paths using mins and max cluster arrasy
+    findClearPathKernel<<<1, MAX_THREADS>>>(minX, maxX, minZ, maxZ, numClustersOrig, leftBearing, rightBearing);
+    checkStatus(cudaGetLastError());
+    cudaDeviceSynchronize();
+
+    findAngleOffCenterKernel<<<1, MAX_THREADS>>>(minX, maxX, minZ, maxZ, numClustersOrig, leftBearing, 0);
+    checkStatus(cudaGetLastError());
+    cudaDeviceSynchronize();
+
+    findAngleOffCenterKernel<<<1, MAX_THREADS>>>(minX, maxX, minZ, maxZ, numClustersOrig, rightBearing, 1);    
+    checkStatus(cudaGetLastError());
+    cudaDeviceSynchronize();
+    
+    cudaFree(leftBearing);
+    cudaFree(rightBearing);
+    
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);
     cudaFree(minX);

@@ -67,6 +67,8 @@ int main(int argc, char** argv) {
     //Setup camera and viewer
     sl::InitParameters init_params;
     init_params.coordinate_units = sl::UNIT::MILLIMETER;
+    init_params.camera_resolution = sl::RESOLUTION::VGA; 
+    init_params.camera_fps = 100;
     zed.open(init_params); 
     // init viewer
     auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
@@ -154,7 +156,7 @@ int main(int argc, char** argv) {
         cout << "[size] post-ransac: " << pc_f4.size << endl; 
         clearStale(pc_f4, 320/2*180/2);
 
-        /*
+        
         
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
@@ -165,7 +167,7 @@ int main(int argc, char** argv) {
         
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
-        */
+        
 
         #ifndef USE_PCL
         viewer.isAvailable();
@@ -189,6 +191,9 @@ int main(int argc, char** argv) {
         //draw an actual plane on the viewer where the ground is
         updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
+        updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
+        updateProjectedLines();
+        // updateObjectBoxes(1, minX, maxX, minY, maxY, minZ, maxZ );
        // viewer.updatePointCloud(testcloudmat);
 
         #endif
