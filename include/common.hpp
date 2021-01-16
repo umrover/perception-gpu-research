@@ -7,6 +7,8 @@
 #define CHANNEL 4
 #define BLOCK_SIZE 1024
 
+#define HALF_ROVER 5
+
 #define VIEWER_BGR_COLOR 2.14804915479e-38
 
 
