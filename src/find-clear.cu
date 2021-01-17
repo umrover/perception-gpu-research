@@ -68,18 +68,10 @@ int findNextLargestSquare(int num){
 
 //Finds the leftmost or rightmost obstacle in a given path, calculates a new path based on where this obstacle is, 
 //and then checks that path for obstacles. Direction of 1 is right and 0 is left
-__global__ void findAngleOffCenterKernel(float* minXG, float* maxXG, float* minZG, int numClusters, float* bearing, int direction) {
+__global__ void findAngleOffCenterKernel(float* minXG, float* maxXG, float* minZG, int numClusters, int* bearing, int direction) {
     
-    if(!(*bearing)) return;
-
-    //Declare variables
-    __shared__ float maxXS[MAX_THREADS];
-    __shared__ float minXS[MAX_THREADS];
-    __shared__ float minZS[MAX_THREADS];
-    __shared__ bool obstacle;
-    __shared__ float slope;
-
-    if(threadIdx.x == 0) slope = 0;
+    if(!(*bearing)) return; //Check if bearing is 0
+    if(threadIdx.x == 0) *bearing = direction ? INT_MIN : INT_MAX;
     if(threadIdx.x >= numClusters) return;
 
     //Copy over data from global to local
@@ -87,67 +79,27 @@ __global__ void findAngleOffCenterKernel(float* minXG, float* maxXG, float* minZ
     float minX = minXG[threadIdx.x];
     float minZ = minZG[threadIdx.x];
 
-    *bearing = 0;
+    //Each thread finds the angle off center of their obstacle and we take the rightmost one
+    int buffer = 10;
+    float oppSideRTri = direction ? maxX : minX;
+    float adjSideRTri = minZ;//Length of adjacent side of right triangle
+    oppSideRTri += direction ? buffer+HALF_ROVER : -(buffer+HALF_ROVER); //Calculate length of opposite side of right triangle
+    int angle = atan(oppSideRTri/adjSideRTri)*180/PI;//arctan(opposite/adjacent) //TODO Change this to float, but not for now, since atomicMin only owrks with ints
 
-    do {
+    printf("Angle: %i\n", angle);
+    //Take the farthest right or left and write to global memory
+    direction ? atomicMax(bearing, angle) : atomicMin(bearing, angle);
+    
+    __syncthreads(); 
 
-        if(threadIdx.x == 0) obstacle = false; //Assume path we're checking is clear until we detect obstacle
+    if(direction == 0 && *bearing == angle) printf("Leftmost: (%.1f, %.1f) Bearing: %i\n", minX, minZ, angle);
+    if(direction == 1 && *bearing == angle) printf("Rightmost: (%.1f, %.1f) Bearing: %i\n", maxX, minZ, angle);   
+    
 
-        __syncthreads();
-
-        //Creates functors to compare points against
-        compareLine rightLine(slope, HALF_ROVER); //Is there a way to make these objects shared?
-        compareLine leftLine(slope, -HALF_ROVER);
-
-        //Checks if either of the threads points is between the two lines
-        if((leftLine(maxX, minZ) > -1 && rightLine(maxX, minZ) < 1) || //check if maxX is between right and left
-        (leftLine(minX, minZ) > -1 && rightLine(minX, minZ) < 1) || //Check if minX is between right and left
-        (leftLine(minX, minZ, maxX, minZ) || rightLine(minZ, minZ, maxX, minZ))) { //check if lines intersect line seg
-            obstacle = true;
-            maxXS[threadIdx.x] = maxX;
-            minXS[threadIdx.x] = minX;
-            minZS[threadIdx.x] = minZ;
-            printf("Point %d found in path\n", threadIdx.x);
-        }
-        else {
-            maxXS[threadIdx.x] = FLT_MIN;
-            minXS[threadIdx.x] = FLT_MAX;
-        }
-
-        __syncthreads();
-
-        //Zero thread finds the min and max. Could do parallel reduction here, 
-        //but so few clusters probably not worth the effort
-        if(threadIdx.x == 0 && obstacle){
-            float minXFinal = FLT_MAX, minZMinXFinal = 0, maxXFinal = FLT_MIN, minZMaxXFinal = 0; 
-            for(int i = 0; i < numClusters; ++i ){
-                if(maxXS[i] > maxXFinal) {
-                    maxXFinal= maxXS[i];
-                    minZMaxXFinal = minZS[i];
-                }
-                if(minXS[i] < minXFinal) {
-                    minXFinal = minXS[i];
-                    minZMinXFinal = minZS[i];
-                }
-            }
-            
-            int buffer = 0;
-            //Finding slpoe off center
-            float oppSideRTri = direction ? maxXFinal : minXFinal;
-            float adjSideRTri = direction ? minZMaxXFinal : minZMinXFinal;//Length of adjacent side of right triangle
-            oppSideRTri += direction ? buffer+HALF_ROVER : -(buffer+HALF_ROVER); //Calculate length of opposite side of right triangle
-            slope = atan(oppSideRTri/adjSideRTri)*180/PI;//arctan(opposite/adjacent)
-            if(direction == 0 && threadIdx.x == 0)printf("Leftmost: (%.1f, %.1f) Bearing: %.1f\n", minXFinal, minZMinXFinal, slope);
-            if(direction == 1 && threadIdx.x == 0)printf("Rightmost: (%.1f, %.1f) Bearing: %.1f\n", maxXFinal, minZMaxXFinal, slope);   
-        }
-
-    } while(obstacle && fabs(slope) < 70);
-
-    if(threadIdx.x == 0) printf("Bearing: %.1f\n", slope);
-    if(threadIdx.x == 0) *bearing = slope; //Write to global memory
+    if(threadIdx.x == 0) printf("Bearing: %i\n", *bearing);
     
 }
-__global__ void findClearPathKernel(float* minXG, float* maxXG, float* minZG, int numClusters, float* leftBearing, float* rightBearing) {
+__global__ void findClearPathKernel(float* minXG, float* maxXG, float* minZG, int numClusters, int* leftBearing, int* rightBearing) {
         
     //Declare variables
     if(threadIdx.x >= numClusters) return;
@@ -201,8 +153,8 @@ void testClearPath() {
     float* minXG;
     float* maxXG;
     float* minZG;
-    float* leftBearing;
-    float* rightBearing;
+    int* leftBearing;
+    int* rightBearing;
 
     cudaMalloc(&minXG, sizeof(float)*testClusterSize);
     cudaMalloc(&maxXG, sizeof(float)*testClusterSize);
@@ -210,9 +162,9 @@ void testClearPath() {
     cudaMalloc(&leftBearing, sizeof(float));
     cudaMalloc(&rightBearing, sizeof(float));
 
-    float minXCPU[testClusterSize] = { -6, -10, 6, -100, };
-    float maxXCPU[testClusterSize] = { 6, -7, 7, -9};
-    float minZCPU[testClusterSize] = { 10, 10, 10, 10};
+    float minXCPU[testClusterSize] = { -6, 10,     6, -100};
+    float maxXCPU[testClusterSize] = { 6,  3259.3, 7,   -9};
+    float minZCPU[testClusterSize] = { 1000, 2896.9,    1000,   1000};
 
     cudaMemcpy(minXG, minXCPU, sizeof(float)*testClusterSize, cudaMemcpyHostToDevice);
     cudaMemcpy(maxXG, maxXCPU, sizeof(float)*testClusterSize, cudaMemcpyHostToDevice);
