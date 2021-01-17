@@ -47,9 +47,9 @@ void copyCloud(GPU_Cloud_F4 &to, GPU_Cloud_F4 &from);
 
 void clearStale(GPU_Cloud_F4 &cloud, int maxSize);
 
-__global__ void findClearPathKernel(float* minXG, float* maxXG, float* minZG, float* maxZ, int numClusters, float* leftBearing, float* rightBearing);
+__global__ void findClearPathKernel(float* minXG, float* maxXG, float* minZG, float* maxZ, int numClusters, int* leftBearing, int* rightBearing);
 
-__global__ void findAngleOffCenterKernel(float* minXG, float* maxXG, float* minZG, float* maxZ, int numClusters, float* bearing, int direction);
+__global__ void findAngleOffCenterKernel(float* minXG, float* maxXG, float* minZG, float* maxZ, int numClusters, int* bearing, int direction);
 
 //Remove all the points in cloud except those at the given indicies 
 GPU_Cloud removeAllExcept(GPU_Cloud pc, GPU_Indicies indicies);

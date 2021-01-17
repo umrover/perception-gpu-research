@@ -1020,8 +1020,13 @@ EuclideanClusterExtractor::ObsReturn EuclideanClusterExtractor::extractClusters(
     cudaMemcpy(minZCPU, minZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
     cudaMemcpy(maxZCPU, maxZ, sizeof(float)*numClustersOrig, cudaMemcpyDeviceToHost);
 
-    float* leftBearing;
-    float* rightBearing;
+    int* leftBearing;
+    int* rightBearing;
+    int* leftCPU;
+    int* rightCPU; 
+
+    leftCPU = (int*) malloc(sizeof(int));
+    rightCPU = (int*) malloc(sizeof(int));
 
     cudaMalloc(&leftBearing, sizeof(float));
     cudaMalloc(&rightBearing, sizeof(float));
@@ -1039,8 +1044,19 @@ EuclideanClusterExtractor::ObsReturn EuclideanClusterExtractor::extractClusters(
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
     
+    std::cerr << "Finished finding the angle\n";
+    //Copy bearings to CPU and display the bearings
+    cudaMemcpy(leftCPU, leftBearing, sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(rightCPU, rightBearing, sizeof(int), cudaMemcpyDeviceToHost);
+    
+
+    std::cerr << "Copied to CPU\n";
+    bearing = *rightCPU;
+    std::cerr<< "Copied to global scope";
     cudaFree(leftBearing);
     cudaFree(rightBearing);
+    free(leftCPU);
+    free(rightCPU);
     
     checkStatus(cudaDeviceSynchronize()); //not needed?
     cudaFree(neighborLists);

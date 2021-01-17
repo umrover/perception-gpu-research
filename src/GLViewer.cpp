@@ -207,13 +207,24 @@ void updateObjectBoxes(int num, float* minX, float* maxX, float* minY, float* ma
 Simple3DObject projPath;
 int i = 0; 
 
-void updateProjectedLines() {
-    sl::float3 start(584,0,0);
-    sl::float3 end(584+i,0,7000);
+void updateProjectedLines(int bearing) {
+    float PI = 3.141592;
+    sl::float3 startLeft(-584,1000,0);
+    sl::float3 startRight(584,1000,0);
+    sl::float3 endLeft(-584,1000,7000);
+    sl::float3 endRight(584,1000,7000);
+    std::cerr << "stuff declared "<< bearing << "\n";
+    if(bearing){
+        float x = 7000*tan(bearing*(PI/180));
+        endLeft.x += x;
+        endRight.x += x;
+        std::cerr << "Right: " << endRight.x <<  " -Left: " << endLeft.x << "\n";
+    }
+    std::cerr << "stuff calculated\n";
     projPath = Simple3DObject(sl::Translation(0, 0, 0), true);
-    i = (i+10)%1000;
     sl::float3 c(0.0, 0.0, 1.0);
-    projPath.addFace(start,start,end, c);
+    projPath.addFace(startLeft,startLeft,endLeft, c);
+    projPath.addFace(startRight,startRight,endRight, c);
     projPath.setDrawingType(GL_TRIANGLES);
     projPath.pushToGPU();
 }

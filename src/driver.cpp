@@ -192,7 +192,8 @@ int main(int argc, char** argv) {
         updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
         viewer.updatePointCloud(gpu_cloud);
         updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
-        updateProjectedLines();
+        std::cerr << "Running update projected Lines\n";
+        updateProjectedLines(ece.bearing);
         // updateObjectBoxes(1, minX, maxX, minY, maxY, minZ, maxZ );
        // viewer.updatePointCloud(testcloudmat);
 

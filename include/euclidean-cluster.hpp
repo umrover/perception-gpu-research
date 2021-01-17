@@ -22,6 +22,8 @@ class EuclideanClusterExtractor {
             float* maxZ;
             
         };
+
+        int bearing;
         /*
         REQUIRES: 
         - Zed point cloud allocated on GPU
