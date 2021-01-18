@@ -207,24 +207,30 @@ void updateObjectBoxes(int num, float* minX, float* maxX, float* minY, float* ma
 Simple3DObject projPath;
 int i = 0; 
 
-void updateProjectedLines(int bearing) {
+void updateProjectedLines(int bearingRight, int bearingLeft) {
     float PI = 3.141592;
     sl::float3 startLeft(-584,1000,0);
     sl::float3 startRight(584,1000,0);
-    sl::float3 endLeft(-584,1000,7000);
-    sl::float3 endRight(584,1000,7000);
-    std::cerr << "stuff declared "<< bearing << "\n";
-    if(bearing){
-        float x = 7000*tan(bearing*(PI/180));
-        endLeft.x += x;
-        endRight.x += x;
-        std::cerr << "Right: " << endRight.x <<  " -Left: " << endLeft.x << "\n";
+    sl::float3 endLeftBR(-584,1000,7000);
+    sl::float3 endRightBR(584,1000,7000);
+    sl::float3 endLeftBL(-584,1000,7000);
+    sl::float3 endRightBL(584,1000,7000);
+
+    if(bearingRight && bearingLeft){
+        float xRight = 7000*tan(bearingRight*(PI/180));
+        endLeftBR.x += xRight;
+        endRightBR.x += xRight;
+        float xLeft = 7000*tan(bearingLeft*(PI/180));
+        endLeftBL.x += xLeft;
+        endRightBL.x += xLeft;
     }
-    std::cerr << "stuff calculated\n";
+
     projPath = Simple3DObject(sl::Translation(0, 0, 0), true);
     sl::float3 c(0.0, 0.0, 1.0);
-    projPath.addFace(startLeft,startLeft,endLeft, c);
-    projPath.addFace(startRight,startRight,endRight, c);
+    projPath.addFace(startLeft,startLeft,endLeftBR, c);
+    projPath.addFace(startRight,startRight,endRightBR, c);
+    projPath.addFace(startLeft,startLeft,endLeftBL, c);
+    projPath.addFace(startRight,startRight,endRightBL, c);
     projPath.setDrawingType(GL_TRIANGLES);
     projPath.pushToGPU();
 }

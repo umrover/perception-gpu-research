@@ -1044,15 +1044,14 @@ EuclideanClusterExtractor::ObsReturn EuclideanClusterExtractor::extractClusters(
     checkStatus(cudaGetLastError());
     cudaDeviceSynchronize();
     
-    std::cerr << "Finished finding the angle\n";
     //Copy bearings to CPU and display the bearings
     cudaMemcpy(leftCPU, leftBearing, sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(rightCPU, rightBearing, sizeof(int), cudaMemcpyDeviceToHost);
     
-
-    std::cerr << "Copied to CPU\n";
-    bearing = *rightCPU;
-    std::cerr<< "Copied to global scope";
+    //Set CPU bearings for viewer use
+    bearingRight = *rightCPU;
+    bearingLeft = *leftCPU;
+    
     cudaFree(leftBearing);
     cudaFree(rightBearing);
     free(leftCPU);

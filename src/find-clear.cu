@@ -88,7 +88,6 @@ __global__ void findAngleOffCenterKernel(float* minXG, float* maxXG, float* minZ
         oppSideRTri += direction ? buffer+HALF_ROVER : -(buffer+HALF_ROVER); //Calculate length of opposite side of right triangle
         int angle = atan(oppSideRTri/adjSideRTri)*180/PI;//arctan(opposite/adjacent) //TODO Change this to float, but not for now, since atomicMin only owrks with ints
 
-        printf("Angle: %i\n", angle);
         //Take the farthest right or left and write to global memory
         direction ? atomicMax(bearing, angle) : atomicMin(bearing, angle);
         
@@ -97,8 +96,6 @@ __global__ void findAngleOffCenterKernel(float* minXG, float* maxXG, float* minZ
         if(direction == 0 && *bearing == angle) printf("Leftmost: (%.1f, %.1f) Bearing: %i\n", minX, minZ, angle);
         if(direction == 1 && *bearing == angle) printf("Rightmost: (%.1f, %.1f) Bearing: %i\n", maxX, minZ, angle);   
         
-
-        if(threadIdx.x == 0) printf("Bearing: %i\n", *bearing);
     }
     
     
@@ -119,8 +116,6 @@ __global__ void findClearPathKernel(float* minXG, float* maxXG, float* minZG, fl
     float minX = minXG[threadIdx.x];
     float minZ = minZG[threadIdx.x];
     float maxZ = maxZG[threadIdx.x];
-
-    if(threadIdx.x == 0) printf("Vars are copied\n");
 
     //Check where point is relative to line
     //Since the z values of the min and max x values aren't stored we are going

@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //Pass Through Filter
-    PassThrough passZ('z', 200.0, 7000.0); //This probly won't do much since range so large 200-7000
+    PassThrough passZ('z', 200.0, 1500.0); //This probly won't do much since range so large 200-7000
    // PassThrough passY('y', 100.0, 600.0); 
     
     //This is a RANSAC model that we will use
@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
         viewer.updatePointCloud(gpu_cloud);
         updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
         std::cerr << "Running update projected Lines\n";
-        updateProjectedLines(ece.bearing);
+        updateProjectedLines(ece.bearingRight, ece.bearingLeft);
         // updateObjectBoxes(1, minX, maxX, minY, maxY, minZ, maxZ );
        // viewer.updatePointCloud(testcloudmat);
 

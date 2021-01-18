@@ -23,7 +23,8 @@ class EuclideanClusterExtractor {
             
         };
 
-        int bearing;
+        int bearingRight;
+        int bearingLeft;
         /*
         REQUIRES: 
         - Zed point cloud allocated on GPU
