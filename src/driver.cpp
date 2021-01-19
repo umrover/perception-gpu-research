@@ -14,8 +14,10 @@
 #include "pass-through.hpp"
 #include "euclidean-cluster.hpp"
 #include "driver.hpp"
+#include <atomic>
 
 using namespace std::chrono; 
+std::atomic<bool> stop(false);
 
 /*
 Temporary driver program, do NOT copy this to mrover percep code at time of integration
@@ -58,9 +60,7 @@ void prevFrame() {
     cout << guiK << endl;
 }
 
-
-int main(int argc, char** argv) {  
-    
+void program() {
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
     
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
     zed.open(init_params); 
     // init viewer
     auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
-    GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
+    GLenum errgl = viewer.init(0, nullptr, camera_config.calibration_parameters.left_cam);
 
     //This is a cloud with data stored in GPU memory that can be acessed from CUDA kernels
     sl::Mat gpu_cloud (cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
@@ -102,7 +102,15 @@ int main(int argc, char** argv) {
     tmp.size = cloud_res.width*cloud_res.height;
     EuclideanClusterExtractor ece(100, 50, 0, tmp, 9); //60/120
 
-    while(true) {
+    std::chrono::duration<double, std::milli> loopTime{};
+    std::chrono::duration<double, std::milli> grabTime{};
+    std::chrono::duration<double, std::milli> passTime{};
+    std::chrono::duration<double, std::milli> ransacTime{};
+    std::chrono::duration<double, std::milli> eceTime{};
+
+    int iterations = 0;
+
+    while(!stop) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
 
@@ -127,6 +135,7 @@ int main(int argc, char** argv) {
         GPU_Cloud_F4 pc_f4 = getRawCloud(gpu_cloud, true);
         auto grabEnd = high_resolution_clock::now();
         auto grabDuration = duration_cast<microseconds>(grabEnd - grabStart); 
+        grabTime += grabEnd - grabStart;
         cout << "grab time: " << (grabDuration.count()/1.0e3) << " ms" << endl; 
         //DEBUG STEP, safe to remove if causing slowness - ash
         //sl::Mat orig; 
@@ -140,6 +149,7 @@ int main(int argc, char** argv) {
         passZ.run(pc_f4);
         auto passThroughStop = high_resolution_clock::now();
         auto passThroughDuration = duration_cast<microseconds>(passThroughStop - passThroughStart); 
+        passTime += passThroughStop-passThroughStart;
         cout << "pass-through time: " << (passThroughDuration.count()/1.0e3) << " ms" <<  endl; 
 
         //DEBUG STEP, safe to remove if causing slowness - ash
@@ -152,11 +162,10 @@ int main(int argc, char** argv) {
         planePoints = ransac.computeModel(pc_f4, true);
         auto ransacStop = high_resolution_clock::now();
         auto ransacDuration = duration_cast<microseconds>(ransacStop - ransacStart); 
+        ransacTime += ransacStop-ransacStart; 
         cout << "ransac time: " << (ransacDuration.count()/1.0e3) << " ms" <<  endl; 
         cout << "[size] post-ransac: " << pc_f4.size << endl; 
         clearStale(pc_f4, 320/2*180/2);
-
-        
         
         ece.findBoundingBox(pc_f4);
         ece.buildBins(pc_f4);
@@ -166,13 +175,21 @@ int main(int argc, char** argv) {
         ece.freeBins();
         
         auto eceDuration = duration_cast<microseconds>(eceStop - eceStart); 
+        eceTime += eceStop-eceStart;
         cout << "ECE time: " << (eceDuration.count()/1.0e3) << " ms" <<  endl; 
-        
+        auto loopEnd = high_resolution_clock::now();
+        loopTime += loopEnd-grabStart;
 
         #ifndef USE_PCL
         viewer.isAvailable();
         #endif
         
+        std::cout << "Frame Rate: " << 1000/(loopTime.count()/iterations) << " FPS\n";
+        std::cout << "Grab Time: " << grabTime.count()/iterations << " ms\n";
+        std::cout << "Pass Time: " << passTime.count()/iterations << " ms\n";
+        std::cout << "Ransac Time: " << ransacTime.count()/iterations << " ms\n";
+        std::cout << "ECE + FindPath Time: " << eceTime.count()/iterations << " ms\n";
+
         //PCL viewer + Zed SDK Viewer
         #ifdef USE_PCL
         ZedToPcl(pc_pcl, pclTest);
@@ -209,8 +226,22 @@ int main(int argc, char** argv) {
         */
         
         //std::this_thread::sleep_for(0.2s);
+        iterations++;
+
+        
     }
+
+    
+    //ece.out();
+
     gpu_cloud.free();
     zed.close(); 
-    return 1;
+}
+
+int main(int argc, char** argv) {  
+    std::thread t(program);
+    std::cin.get();
+    stop = true;
+    t.join();
+    return 0;
 }
