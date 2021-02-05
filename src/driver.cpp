@@ -22,7 +22,7 @@ Temporary driver program, do NOT copy this to mrover percep code at time of inte
 Use/update existing Camera class which does the same thing but nicely abstracted.
 */
 
-//#define USE_PCL
+#define USE_PCL
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -69,10 +69,31 @@ int main(int argc, char** argv) {
     init_params.coordinate_units = sl::UNIT::MILLIMETER;
     init_params.camera_resolution = sl::RESOLUTION::VGA; 
     init_params.camera_fps = 100;
+    #ifndef USE_PCL
     zed.open(init_params); 
     // init viewer
     auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
     GLenum errgl = viewer.init(argc, argv, camera_config.calibration_parameters.left_cam);
+    #endif
+    #ifdef USE_PCL
+    //sl::CameraInformation camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
+    //auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
+    //zed.open(init_params); 
+    //auto camera_config = zed.getCameraInformation(cloud_res).camera_configuration;
+    //auto &blah = camera_config.calibration_parameters.left_cam;
+    //cout << blah.fx << " " << blah.fy << " " << blah.cx << " " << blah.cy << " " << blah.image_size.width << " " << blah.image_size.height << endl;
+
+    sl::CameraParameters  defParams;
+    defParams.fx = 79.8502;
+    defParams.fy = 80.275;
+    defParams.cx = 78.8623;
+    defParams.cy = 43.6901;
+    defParams.image_size.width = 160;
+    defParams.image_size.height = 90;
+
+    GLenum errgl = viewer.init(argc, argv, defParams);
+   // return 1;
+    #endif
 
     //This is a cloud with data stored in GPU memory that can be acessed from CUDA kernels
     sl::Mat gpu_cloud (cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
@@ -80,7 +101,7 @@ int main(int argc, char** argv) {
     cout << "Point clouds are of size: " << pcSize << endl;
 
     //Pass Through Filter
-    PassThrough passZ('z', 200.0, 1500.0); //This probly won't do much since range so large 200-7000
+    PassThrough passZ('z', 200.0, 7000.0); //This probly won't do much since range so large 200-7000
    // PassThrough passY('y', 100.0, 600.0); 
     
     //This is a RANSAC model that we will use
@@ -106,7 +127,7 @@ int main(int argc, char** argv) {
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
 
-        //Grab cloud from PCD file
+        //Grab cloud from PCD filesl::Camera::CameraParamaters
         #ifdef USE_PCL 
         setPointCloud( 61+ guiK /*61*/ );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
