@@ -1,4 +1,4 @@
-#include <sl/Camera.hpp>
+//#include <sl/Camera.hpp>
 
 #ifndef COMMON
 #define COMMON
@@ -29,7 +29,7 @@ struct GPU_Indicies {
     int size;
 };
 
-
+/*
 //Returns true if a cuda error occured and prints an error message
 bool checkStatus(cudaError_t status);
 
@@ -56,7 +56,7 @@ GPU_Cloud removeAllExcept(GPU_Cloud pc, GPU_Indicies indicies);
 
 //Remove all the points in cloud at the given indicies 
 GPU_Cloud keepAllExcept(GPU_Cloud pc, GPU_Indicies indicies);
-
+*/
 /*
 __device__ float getX(GPU_Cloud pc, int index) {
     return pc.data[pc.stride * index + 0];

@@ -23,16 +23,20 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 */
 
 #define USE_PCL
-
+int guiK = 0;
 //Zed camera and viewer
+
 sl::Camera zed;
 GLViewer viewer;
-int guiK = 0;
+
+
 
 RansacPlane::Plane planePoints;
+
 EuclideanClusterExtractor::ObsReturn obstacles;
 
 //This is a thread to just spin the zed viewer
+
 void spinZedViewer() {
     while(viewer.isAvailable()) {
         std::this_thread::sleep_for (std::chrono::milliseconds(10));
@@ -44,10 +48,12 @@ void spinZedViewer() {
         float maxY[] = {100.0};
         float minZ[] = {0.0};
         float maxZ[] = {100.0}; */
+        
         updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
       // updateObjectBoxes(1, minX, maxX, minY, maxY, minZ, maxZ );
     }
 }
+
 
 void nextFrame() {
     guiK++;
@@ -63,7 +69,7 @@ int main(int argc, char** argv) {
     
     sl::Resolution cloud_res(320/2, 180/2);
     int k = 0;
-    
+    cudaSetDevice(0);
     //Setup camera and viewer
     sl::InitParameters init_params;
     init_params.coordinate_units = sl::UNIT::MILLIMETER;
@@ -94,7 +100,7 @@ int main(int argc, char** argv) {
     GLenum errgl = viewer.init(argc, argv, defParams);
    // return 1;
     #endif
-
+    /*
     //This is a cloud with data stored in GPU memory that can be acessed from CUDA kernels
     sl::Mat gpu_cloud (cloud_res, sl::MAT_TYPE::F32_C4, sl::MEM::GPU);
     int pcSize = cloud_res.area(); 
@@ -122,14 +128,18 @@ int main(int argc, char** argv) {
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
     EuclideanClusterExtractor ece(100, 50, 0, tmp, 9); //60/120
-
+*/  std::cout<< "Working\n";
     while(true) {
+        
+        /*
+        
         //Todo, Timer class. Timer.start(), Timer.record() 
         k++;
-
+        
         //Grab cloud from PCD filesl::Camera::CameraParamaters
         #ifdef USE_PCL 
-        setPointCloud( 61+ guiK /*61*/ );
+        
+        setPointCloud( 61+ guiK  );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
@@ -221,7 +231,7 @@ int main(int argc, char** argv) {
         #endif
 
         cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
-        
+        */
         //I did this that way the viewer would still respond
         /*
         for(int i = 0; i < 1000; i++){
@@ -231,7 +241,9 @@ int main(int argc, char** argv) {
         
         //std::this_thread::sleep_for(0.2s);
     }
+    /*
     gpu_cloud.free();
     zed.close(); 
+    */
     return 1;
 }

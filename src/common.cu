@@ -1,13 +1,13 @@
-#include "common.hpp"
+//#include "common.hpp"
 #include <iostream>
-#include <sl/Camera.hpp>
+/* #include <sl/Camera.hpp>
 
 #include <pcl/common/common_headers.h>
 #include <pcl/point_types.h>
 
 
 #include <pcl/common/time.h>
-
+*/
 #include <vector>
 #include <algorithm>
 
@@ -25,7 +25,7 @@ int ceilDiv(int x, int y) {
     return (x + y - 1) / y;
 }
 
-
+/*
 //This function convert a RGBA color packed into a packed RGBA PCL compatible format
 inline float convertColor(float colorIn) {
     uint32_t color_uint = *(uint32_t *) & colorIn;
@@ -35,7 +35,7 @@ inline float convertColor(float colorIn) {
 }
 
 //Taken from mrover code, creates a PCL pointcloud from a zed GPU cloud
-/*
+
 void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Mat zed_cloud) {
   sl::Mat zed_cloud_cpu;
   zed_cloud.copyTo(zed_cloud_cpu,  sl::COPY_TYPE::GPU_CPU);
@@ -55,7 +55,7 @@ void ZedToPcl(pcl::PointCloud<pcl::PointXYZRGB>::Ptr & p_pcl_point_cloud, sl::Ma
     index += 4;
   }
 
-} */
+} 
 
 GPU_Cloud getRawCloud(sl::Mat zed_cloud) {
     GPU_Cloud g;
@@ -109,3 +109,4 @@ void clearStale(GPU_Cloud_F4 &cloud, int maxSize) {
     removeJunkKernel<<<ceilDiv(maxSize-cloud.size, MAX_THREADS), MAX_THREADS>>>(cloud, cloud.size, maxSize);
     checkStatus(cudaDeviceSynchronize());
 }
+*/

@@ -237,6 +237,8 @@ void updateProjectedLines(int bearingRight, int bearingLeft) {
 
 GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
     
+    cudaSetDevice(0);
+
     glutInit(&argc, argv);
     int wnd_w = glutGet(GLUT_SCREEN_WIDTH);
     int wnd_h = glutGet(GLUT_SCREEN_HEIGHT) *0.9;
@@ -244,28 +246,32 @@ GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
     glutInitWindowPosition(wnd_w*0.05, wnd_h*0.05);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutCreateWindow("ZED Depth Sensing");
-
+    std::cerr <<"Fish\n";
     GLenum err = glewInit();
+    std::cerr << err << "\n";
     if (GLEW_OK != err)
         return err;
 
-
+    std::cerr <<"Fish1\n";
     glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
+    std::cerr <<"Fish1.1\n";
     glEnable(GL_DEPTH_TEST);
-
+    std::cerr <<param.image_size.width<<"\n";
+    std::cerr <<param.image_size.height<<"\n";
     pointCloud_.initialize(param.image_size);
-
+    std::cerr <<"Fish1.3\n";
     // Compile and create the shader
     shader_ = Shader(VERTEX_SHADER, FRAGMENT_SHADER);
+    std::cerr <<"Fish1.4\n";
     shMVPMatrixLoc_ = glGetUniformLocation(shader_.getProgramId(), "u_mvpMatrix");
-
+    std::cerr <<"Fish2\n";
     // Create the camera
     camera_ = CameraGL(sl::Translation(0, 0, 0), sl::Translation(0, 0, -100));
     camera_.setOffsetFromPosition(sl::Translation(0, 0, 5000));
 
     frustum = createFrustum(param);
     frustum.pushToGPU();
-
+    std::cerr <<"Fish3\n";
     bckgrnd_clr = sl::float3(223, 230, 233);
     bckgrnd_clr /= 255.f;
 
@@ -277,7 +283,7 @@ GLenum GLViewer::init(int argc, char **argv, sl::CameraParameters param) {
     glutKeyboardFunc(GLViewer::keyPressedCallback);
     glutKeyboardUpFunc(GLViewer::keyReleasedCallback);
     glutCloseFunc(CloseFunc);
-
+    std::cerr <<"Fish4\n";
     available = true;
 
     return err;
