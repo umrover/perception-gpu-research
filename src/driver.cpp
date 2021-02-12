@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     defParams.image_size.width = 160;
     defParams.image_size.height = 90;
 
-    GLenum errgl = viewer.init(argc, argv, defParams);
+    //GLenum errgl = viewer.init(argc, argv, defParams);
    // return 1;
     #endif
 
@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD filesl::Camera::CameraParamaters
         #ifdef USE_PCL 
-        setPointCloud( 61+ guiK /*61*/ );
+        setPointCloud( k /*61+ guiK*/ /*61*/ );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
         pclToZed(pclTest, pc_pcl);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
@@ -166,9 +166,9 @@ int main(int argc, char** argv) {
         //DEBUG STEP, safe to remove if causing slowness - ash
         //sl::Mat orig; 
         //pclTest.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
-       
-        cout << "[size] pre-ransac: " << pc_f4.size << endl; 
+
         //Perform RANSAC Plane segmentation to find the ground
+        cout << "[size] pre-ransac: " << pc_f4.size << endl; 
         auto ransacStart = high_resolution_clock::now();
         planePoints = ransac.computeModel(pc_f4, true);
         auto ransacStop = high_resolution_clock::now();
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
         
 
         #ifndef USE_PCL
-        viewer.isAvailable();
+        //viewer.isAvailable();
         #endif
         
         //PCL viewer + Zed SDK Viewer
@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
-        viewer.updatePointCloud(pclTest);
+        //viewer.updatePointCloud(pclTest);
 
         //viewer.updatePointCloud(orig);
 
@@ -210,17 +210,17 @@ int main(int argc, char** argv) {
         //ZED sdk custom viewer ONLY
         #ifndef USE_PCL
         //draw an actual plane on the viewer where the ground is
-        updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
-        viewer.updatePointCloud(gpu_cloud);
-        updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
-        std::cerr << "Running update projected Lines\n";
-        updateProjectedLines(ece.bearingRight, ece.bearingLeft);
+        //updateRansacPlane(planePoints.p1, planePoints.p2, planePoints.p3, 600.5);
+        //viewer.updatePointCloud(gpu_cloud);
+        //updateObjectBoxes(obstacles.size, obstacles.minX, obstacles.maxX, obstacles.minY, obstacles.maxY, obstacles.minZ, obstacles.maxZ );
+        //std::cerr << "Running update projected Lines\n";
+        //updateProjectedLines(ece.bearingRight, ece.bearingLeft);
         // updateObjectBoxes(1, minX, maxX, minY, maxY, minZ, maxZ );
        // viewer.updatePointCloud(testcloudmat);
 
         #endif
 
-        cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
+        //cerr << "Camera frame rate: " << zed.getCurrentFPS() << "\n";
         
         //I did this that way the viewer would still respond
         /*
