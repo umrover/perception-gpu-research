@@ -15,6 +15,8 @@
 #include "euclidean-cluster.hpp"
 #include "driver.hpp"
 
+#include "recorder.hpp"
+
 using namespace std::chrono; 
 
 /*
@@ -23,6 +25,7 @@ Use/update existing Camera class which does the same thing but nicely abstracted
 */
 
 #define USE_PCL
+#define DEBUG 
 
 //Zed camera and viewer
 sl::Camera zed;
@@ -122,6 +125,9 @@ int main(int argc, char** argv) {
     GPU_Cloud_F4 tmp;
     tmp.size = cloud_res.width*cloud_res.height;
     EuclideanClusterExtractor ece(100, 50, 0, tmp, 9); //60/120
+    
+    Recorder blah("blah");
+    Reader bleh2("blah");
 
     while(true) {
         //Todo, Timer class. Timer.start(), Timer.record() 
@@ -129,14 +135,16 @@ int main(int argc, char** argv) {
 
         //Grab cloud from PCD filesl::Camera::CameraParamaters
         #ifdef USE_PCL 
-        setPointCloud( 61+ guiK /*61*/ );
+       // setPointCloud( 61+ guiK /*61*/ );
         sl::Mat pclTest(sl::Resolution(320/2, 180/2), sl::MAT_TYPE::F32_C4, sl::MEM::CPU);
-        pclToZed(pclTest, pc_pcl);
+       // pclToZed(pclTest, pc_pcl);
+       // GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
+        bleh2.load(61 + guiK, pclTest);
         GPU_Cloud_F4 pc_f4 = getRawCloud(pclTest, true);
-
+        //continue;
         //DEBUG STEP, safe to remove if causing slowness - ash
-       // sl::Mat orig; 
-       // pclTest.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
+        sl::Mat orig; 
+        pclTest.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
         #endif
 
         //Grab cloud from the Zed camera
@@ -153,6 +161,7 @@ int main(int argc, char** argv) {
         //sl::Mat orig; 
         //gpu_cloud.copyTo(orig, sl::COPY_TYPE::GPU_GPU);
         #endif
+        blah.writeFrame(gpu_cloud);
         
 
         //Run PassThrough Filter
@@ -199,9 +208,9 @@ int main(int argc, char** argv) {
         ZedToPcl(pc_pcl, pclTest);
         pclViewer->updatePointCloud(pc_pcl); //update the viewer 
     	pclViewer->spinOnce(10);
-        viewer.updatePointCloud(pclTest);
+        //viewer.updatePointCloud(pclTest);
 
-        //viewer.updatePointCloud(orig);
+        viewer.updatePointCloud(orig);
 
 
         #endif
